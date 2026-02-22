@@ -1,0 +1,706 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cu-Ni Electrochemical Cell Simulation</title>
+    <style>
+        :root {
+            --bg-color: #fcfcfc;
+            --cu-color: #d98758; 
+            --cu-ion-color: #29b6f6; 
+            --ni-color: #e0e0e0;
+            --ni-ion-color: #66bb6a; 
+            --electron-color: #ffeb3b;
+            --k-ion-color: #ab47bc; /* Purple */
+            --cl-ion-color: #cddc39; /* Lime Green for Cl- */
+            --membrane-color: #ddd;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f0f0f0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        /* Main Container */
+        #app-container {
+            position: relative;
+            width: 1200px;
+            height: 675px; 
+            background-image: url('CuNi electrochemical cell.png');
+            background-size: contain;
+            background-repeat: no-repeat;
+            background-position: center;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+            background-color: white;
+            border-radius: 8px;
+        }
+
+        .inset-canvas {
+            position: absolute;
+            background: white;
+            border-radius: 50%;
+            overflow: hidden;
+            box-shadow: inset 0 0 20px rgba(0,0,0,0.05);
+        }
+
+        #inset1 { width: 340px; height: 340px; left: 40px; top: 90px; }
+        #inset2 { width: 340px; height: 340px; right: 55px; top: 15px; }
+        #inset3 { width: 340px; height: 340px; left: 470px; bottom: 13px; }
+
+        /* Controls Area */
+        #controls {
+            position: absolute;
+            left: 45px;
+            bottom: 25px;
+            width: 340px;
+            height: 160px;
+            padding: 20px;
+            box-sizing: border-box;
+            background: rgba(255, 255, 255, 0.95);
+            border: 2px solid #4caf50;
+            border-radius: 8px;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        }
+
+        h3 { margin: 0 0 5px 0; color: #333; font-size: 1.2rem; }
+        
+        .control-group {
+            display: flex;
+            flex-direction: column;
+        }
+
+        label { font-weight: bold; color: #555; font-size: 0.9rem; margin-bottom: 8px; }
+
+        /* Toggle Button Styling */
+        .toggle-container {
+            display: flex;
+            background: #e0e0e0;
+            border-radius: 25px;
+            position: relative;
+            cursor: pointer;
+            user-select: none;
+            height: 40px;
+            align-items: center;
+            padding: 2px;
+        }
+
+        .toggle-option {
+            flex: 1;
+            text-align: center;
+            z-index: 2;
+            font-weight: bold;
+            font-size: 0.85rem;
+            color: #555;
+            transition: color 0.3s;
+        }
+
+        .toggle-option.active {
+            color: white;
+        }
+
+        .toggle-slider {
+            position: absolute;
+            left: 2px;
+            top: 2px;
+            bottom: 2px;
+            width: 50%;
+            background: #2196f3;
+            border-radius: 23px;
+            transition: transform 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+        }
+
+        .toggle-container[data-mode="reverse"] .toggle-slider {
+            transform: translateX(100%);
+            background: #ff9800; /* Orange for reverse */
+        }
+
+        button {
+            padding: 10px;
+            background-color: #607d8b;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 1rem;
+            font-weight: bold;
+            transition: background 0.2s;
+            margin-top: auto;
+        }
+        button:hover { background-color: #455a64; }
+
+        .label-overlay {
+            position: absolute;
+            pointer-events: none;
+            font-weight: bold;
+            color: #555;
+            text-align: center;
+            width: 100%;
+            bottom: 20px;
+            font-size: 0.9rem;
+            text-shadow: 0 1px 2px rgba(255,255,255,0.8);
+        }
+
+    </style>
+</head>
+<body>
+
+<div id="app-container">
+    
+    <div id="inset1" class="inset-canvas">
+        <canvas id="c1" width="340" height="340"></canvas>
+        <div id="label1" class="label-overlay">Cu Oxidation (Anode)</div>
+    </div>
+
+    <div id="inset2" class="inset-canvas">
+        <canvas id="c2" width="340" height="340"></canvas>
+        <div id="label2" class="label-overlay">Ni Reduction (Cathode)</div>
+    </div>
+
+    <div id="inset3" class="inset-canvas">
+        <canvas id="c3" width="340" height="340"></canvas>
+        <div id="label3" class="label-overlay">Salt Bridge (K⁺ Migration)</div>
+    </div>
+
+    <div id="controls">
+        <h3>Controls</h3>
+        
+        <div class="control-group">
+            <label>Cell Mode / Direction</label>
+            <div class="toggle-container" id="modeToggle" data-mode="forward">
+                <div class="toggle-slider"></div>
+                <div class="toggle-option active" id="optForward">Electrolytic (Force)</div>
+                <div class="toggle-option" id="optReverse">Voltaic (Battery)</div>
+            </div>
+        </div>
+
+        <button id="resetBtn">Reset Simulation</button>
+    </div>
+
+</div>
+
+<script>
+/**
+ * PhET-style Electrochemical Cell Simulation
+ */
+
+// --- Configuration ---
+const COLORS = {
+    cuAtom: '#d98758',
+    cuIon: '#29b6f6',
+    niAtom: '#e0e0e0',
+    niIon: '#66bb6a',
+    electron: '#ffeb3b',
+    kIon: '#ab47bc',
+    clIon: '#cddc39',
+    water: '#e1f5fe',
+    membrane: '#eeeeee'
+};
+
+const SIM_STATE = {
+    speed: 0.4, 
+    mode: 'forward' // 'forward' (Original: Cu ox) or 'reverse' (New: Cu red)
+};
+
+// --- Shared Classes ---
+
+class Particle {
+    constructor(x, y, type) {
+        this.x = x;
+        this.y = y;
+        this.type = type; // 'atom', 'ion', 'electron'
+        this.vx = 0;
+        this.vy = 0;
+        this.opacity = 1;
+        this.scale = 1;
+        this.dead = false;
+        this.color = '#000';
+        this.glow = false;
+        this.text = ''; // For custom ions
+    }
+
+    update() {
+        this.x += this.vx;
+        this.y += this.vy;
+    }
+
+    draw(ctx) {
+        ctx.globalAlpha = this.opacity;
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, 10 * this.scale, 0, Math.PI * 2);
+        ctx.fillStyle = this.color;
+        
+        if (this.glow) {
+            ctx.shadowBlur = 15;
+            ctx.shadowColor = this.color;
+        } else {
+            ctx.shadowBlur = 0;
+        }
+
+        ctx.fill();
+        
+        // Stroke for atoms
+        if (this.type === 'atom') {
+            ctx.strokeStyle = 'rgba(0,0,0,0.3)';
+            ctx.lineWidth = 1;
+            ctx.stroke();
+        }
+        
+        // Symbol for ions
+        if (this.type === 'ion') {
+            ctx.fillStyle = 'white';
+            ctx.font = 'bold 10px Arial';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.shadowBlur = 0; 
+            
+            let symbol = this.text ? this.text : '++';
+            ctx.fillText(symbol, this.x, this.y);
+        }
+
+        ctx.closePath();
+        ctx.globalAlpha = 1.0;
+        ctx.shadowBlur = 0;
+    }
+}
+
+// --- Inset 1: Copper (Left) ---
+const c1 = document.getElementById('c1');
+const ctx1 = c1.getContext('2d');
+let cuAtoms = [];
+let cuIons = [];
+let electrons1 = [];
+
+function initCu() {
+    cuAtoms = [];
+    cuIons = [];
+    electrons1 = [];
+    // Lattice
+    const rows = 8;
+    const cols = 6;
+    const startX = -20;
+    const startY = 60;
+    const spacing = 22;
+
+    for (let c = 0; c < cols; c++) {
+        for (let r = 0; r < rows; r++) {
+            let p = new Particle(startX + c * spacing, startY + r * spacing, 'atom');
+            p.color = COLORS.cuAtom;
+            p.col = c;
+            p.row = r;
+            cuAtoms.push(p);
+        }
+    }
+}
+
+function updateCu() {
+    ctx1.clearRect(0, 0, 340, 340);
+    
+    // Background: Water on right
+    const grad = ctx1.createLinearGradient(0, 0, 340, 0);
+    grad.addColorStop(0, '#fff9c4');
+    grad.addColorStop(0.4, '#fff9c4');
+    grad.addColorStop(1, '#fff9c4');
+    ctx1.fillStyle = grad;
+    ctx1.fillRect(0, 0, 340, 340);
+
+    // Identify surface atoms (Max X / Col)
+    // Filter atoms that don't have a neighbor to their immediate right
+    let surfaceAtoms = cuAtoms.filter(a => !cuAtoms.some(b => b.row === a.row && b.col === a.col + 1));
+    let maxCol = surfaceAtoms.length > 0 ? Math.max(...surfaceAtoms.map(a => a.col)) : 0;
+
+    // === MODE LOGIC ===
+    if (SIM_STATE.mode === 'forward') {
+        // --- OXIDATION (Anode) ---
+        if (Math.random() < 0.02 * SIM_STATE.speed && surfaceAtoms.length > 0) {
+            const atomToOxidize = surfaceAtoms[Math.floor(Math.random() * surfaceAtoms.length)];
+            cuAtoms = cuAtoms.filter(a => a !== atomToOxidize);
+            
+            // Create Ion
+            let ion = new Particle(atomToOxidize.x, atomToOxidize.y, 'ion');
+            ion.color = COLORS.cuIon;
+            ion.vx = 0.5 + Math.random(); // Move right
+            ion.vy = (Math.random() - 0.5) * 0.5;
+            cuIons.push(ion);
+
+            // Create Electrons leaving left
+            for(let i=0; i<2; i++) {
+                let e = new Particle(atomToOxidize.x, atomToOxidize.y + (i*5), 'electron');
+                e.color = COLORS.electron;
+                e.scale = 0.4;
+                e.vx = -2; 
+                e.vy = (Math.random() - 0.5);
+                e.glow = true;
+                electrons1.push(e);
+            }
+        }
+    } else {
+        // --- REDUCTION (Cathode) ---
+        // Spawn Ion from solution (Right) moving Left
+        if (Math.random() < 0.02 * SIM_STATE.speed) {
+            let ion = new Particle(340, 60 + Math.random() * 180, 'ion');
+            ion.color = COLORS.cuIon;
+            ion.targetRow = Math.floor(Math.random() * 8);
+            
+            // Target the surface (Find max X for this row)
+            let rowAtoms = cuAtoms.filter(a => a.row === ion.targetRow);
+            let targetX = rowAtoms.length > 0 ? Math.max(...rowAtoms.map(a => a.x)) + 22 : -20 + (6*22); // Default if empty??
+            
+            ion.targetX = targetX;
+            ion.targetY = 60 + ion.targetRow * 22;
+
+            let dx = ion.targetX - ion.x;
+            let dy = ion.targetY - ion.y;
+            let dist = Math.sqrt(dx*dx + dy*dy);
+            ion.vx = (dx/dist) * 2;
+            ion.vy = (dy/dist) * 2;
+            cuIons.push(ion);
+        }
+
+        // Check for plating
+        cuIons.forEach(p => {
+             // If moving left (vx < 0) and close to target
+             if (p.vx < 0 && p.x <= p.targetX) {
+                 p.dead = true;
+                 // Add atom
+                 let newAtom = new Particle(p.targetX, p.targetY, 'atom');
+                 newAtom.color = COLORS.cuAtom;
+                 newAtom.row = Math.round((p.targetY - 60)/22);
+                 // Approx col
+                 newAtom.col = Math.round((p.targetX + 20)/22);
+                 cuAtoms.push(newAtom);
+
+                 // Flash electrons arriving from left
+                 for(let k=0; k<2; k++){
+                    let e = new Particle(p.targetX - 20, p.targetY, 'electron');
+                    e.color = COLORS.electron;
+                    e.scale = 0.4;
+                    e.vx = 1; // Arriving from Left
+                    e.glow = true;
+                    e.opacity = 1;
+                    electrons1.push(e);
+                 }
+             }
+        });
+    }
+
+    // Rendering
+    cuAtoms.forEach(p => p.draw(ctx1));
+    
+    cuIons.forEach(p => {
+        // If not dead, update
+        if(!p.dead) {
+            // If in oxidation mode, simple drift
+            if(SIM_STATE.mode === 'forward') {
+                p.update();
+                p.opacity -= 0.005;
+                if(p.opacity <= 0) p.dead = true;
+            } else {
+                // Reduction mode handled in loop above mostly, but update pos here
+                p.x += p.vx;
+                p.y += p.vy;
+            }
+            p.draw(ctx1);
+        }
+    });
+
+    electrons1.forEach(p => {
+        p.update();
+        if(p.x < -20 && p.vx < 0) p.dead = true; // Left edge
+        if(p.x > 360 && p.vx > 0) p.dead = true; // Right edge check? Not needed for left inset
+        if(p.opacity <= 0) p.dead = true; // For flash fade
+        // Fade logic for arrival
+        if(SIM_STATE.mode === 'reverse' && p.vx > 0) p.opacity -= 0.1;
+        p.draw(ctx1);
+    });
+
+    cuIons = cuIons.filter(p => !p.dead);
+    electrons1 = electrons1.filter(p => !p.dead);
+}
+
+// --- Inset 2: Nickel (Right) ---
+const c2 = document.getElementById('c2');
+const ctx2 = c2.getContext('2d');
+let niAtoms = [];
+let niIons = [];
+let electrons2 = []; 
+
+function initNi() {
+    niAtoms = [];
+    niIons = [];
+    electrons2 = [];
+    
+    const rows = 8;
+    const cols = 6;
+    const startX = 220; 
+    const startY = 60;
+    const spacing = 22;
+
+    for (let c = 0; c < cols; c++) {
+        for (let r = 0; r < rows; r++) {
+            let p = new Particle(startX + c * spacing, startY + r * spacing, 'atom');
+            p.color = COLORS.niAtom;
+            p.col = c;
+            p.row = r;
+            niAtoms.push(p);
+        }
+    }
+}
+
+function updateNi() {
+    ctx2.clearRect(0, 0, 340, 340);
+
+    const grad = ctx2.createLinearGradient(0, 0, 340, 0);
+    grad.addColorStop(0, '#fff9c4'); 
+    grad.addColorStop(0.6, '#fff9c4');
+    grad.addColorStop(1, '#fff');
+    ctx2.fillStyle = grad;
+    ctx2.fillRect(0, 0, 340, 340);
+
+    // Surface Logic: Atoms with lowest X (min col) are exposed to solution on Left
+    let surfaceAtoms = niAtoms.filter(a => !niAtoms.some(b => b.row === a.row && b.col === a.col - 1));
+
+    // === MODE LOGIC ===
+    if (SIM_STATE.mode === 'forward') {
+        // --- REDUCTION (Cathode) ---
+        // Existing logic: Ion spawns Left, moves Right
+        if (Math.random() < 0.02 * SIM_STATE.speed) {
+            let ion = new Particle(0, 60 + Math.random() * 180, 'ion');
+            ion.color = COLORS.niIon;
+            ion.targetRow = Math.floor(Math.random() * 8);
+            
+            // Target the surface (Min X)
+            let rowAtoms = niAtoms.filter(a => a.row === ion.targetRow);
+            let targetX = rowAtoms.length > 0 ? Math.min(...rowAtoms.map(a => a.x)) - 22 : 220;
+
+            ion.targetX = targetX; 
+            ion.targetY = 60 + ion.targetRow * 22;
+            
+            let dx = ion.targetX - ion.x;
+            let dy = ion.targetY - ion.y;
+            let dist = Math.sqrt(dx*dx + dy*dy);
+            ion.vx = (dx/dist) * 2;
+            ion.vy = (dy/dist) * 2;
+            niIons.push(ion);
+        }
+
+        niIons.forEach(p => {
+             // Moving Right
+             if(p.vx > 0) {
+                 let dist = Math.sqrt(Math.pow(p.x-p.targetX,2) + Math.pow(p.y-p.targetY,2));
+                 if (dist < 5) {
+                    p.dead = true;
+                    let newAtom = new Particle(p.targetX, p.targetY, 'atom');
+                    newAtom.color = COLORS.niAtom;
+                    newAtom.row = Math.round((p.targetY - 60)/22);
+                    newAtom.col = Math.round((p.targetX - 220)/22); // Approximate
+                    niAtoms.push(newAtom);
+
+                    // Flash electrons arriving from right
+                    for(let k=0; k<2; k++){
+                        let e = new Particle(p.targetX + 20, p.targetY, 'electron');
+                        e.color = COLORS.electron;
+                        e.scale = 0.4;
+                        e.vx = -1; // From right
+                        e.glow = true;
+                        e.opacity = 1;
+                        electrons2.push(e);
+                    }
+                 } else {
+                     p.x += p.vx;
+                     p.y += p.vy;
+                 }
+             }
+        });
+
+    } else {
+        // --- OXIDATION (Anode) ---
+        if (Math.random() < 0.02 * SIM_STATE.speed && surfaceAtoms.length > 0) {
+            const atomToOxidize = surfaceAtoms[Math.floor(Math.random() * surfaceAtoms.length)];
+            niAtoms = niAtoms.filter(a => a !== atomToOxidize);
+            
+            // Create Ion moving Left
+            let ion = new Particle(atomToOxidize.x, atomToOxidize.y, 'ion');
+            ion.color = COLORS.niIon;
+            ion.vx = -(0.5 + Math.random()); // Move left
+            ion.vy = (Math.random() - 0.5) * 0.5;
+            niIons.push(ion);
+
+            // Create Electrons leaving Right
+            for(let i=0; i<2; i++) {
+                let e = new Particle(atomToOxidize.x, atomToOxidize.y + (i*5), 'electron');
+                e.color = COLORS.electron;
+                e.scale = 0.4;
+                e.vx = 2; // Move Right
+                e.vy = (Math.random() - 0.5);
+                e.glow = true;
+                electrons2.push(e);
+            }
+        }
+        
+        // Update drifting ions
+        niIons.forEach(p => {
+             if (p.vx < 0) {
+                 p.update();
+                 p.opacity -= 0.005;
+                 if(p.opacity <= 0) p.dead = true;
+             }
+        });
+    }
+
+    // Rendering
+    niAtoms.forEach(p => p.draw(ctx2));
+    niIons.forEach(p => {
+        if(!p.dead) p.draw(ctx2);
+    });
+    electrons2.forEach(p => {
+        p.update();
+        if(SIM_STATE.mode === 'forward') {
+            p.opacity -= 0.1;
+            if(p.opacity <= 0) p.dead = true;
+        } else {
+            // Oxidation mode: electrons fly right
+            if(p.x > 360) p.dead = true;
+        }
+        p.draw(ctx2);
+    });
+
+    niIons = niIons.filter(p => !p.dead);
+    electrons2 = electrons2.filter(p => !p.dead);
+}
+
+
+// --- Inset 3: Salt Bridge (Bottom) ---
+const c3 = document.getElementById('c3');
+const ctx3 = c3.getContext('2d');
+let saltIons = [];
+
+function initSaltBridge() {
+    saltIons = [];
+}
+
+function updateSaltBridge() {
+    ctx3.clearRect(0, 0, 340, 340);
+
+    // Draw environment
+    ctx3.fillStyle = '#fff9c4'; 
+    ctx3.fillRect(0, 0, 340, 150);
+    
+    ctx3.fillStyle = COLORS.membrane; 
+    ctx3.fillRect(0, 150, 340, 20);
+
+    ctx3.fillStyle = '#fff9c4'; 
+    ctx3.fillRect(0, 170, 340, 170);
+
+    // Membrane details
+    ctx3.fillStyle = '#bbb';
+    for(let i=0; i<340; i+=20) {
+        ctx3.fillRect(i, 150, 5, 20);
+    }
+
+    // Logic: Migration
+    if (Math.random() < 0.03 * SIM_STATE.speed) {
+        let ion = new Particle(Math.random() * 300 + 20, 20, 'ion');
+        ion.vx = (Math.random() - 0.5) * 0.5;
+        ion.vy = 1 + Math.random(); 
+
+        if (SIM_STATE.mode === 'forward') {
+            ion.color = COLORS.kIon;
+            ion.text = 'K+';
+        } else {
+            ion.color = COLORS.clIon;
+            ion.text = 'Cl-';
+        }
+        
+        saltIons.push(ion);
+    }
+
+    saltIons.forEach(p => {
+        p.update();
+        // Slow down in solution
+        if (p.y > 170) {
+            p.vy *= 0.95;
+            p.opacity -= 0.01;
+        }
+        if (p.opacity <= 0) p.dead = true;
+
+        p.draw(ctx3);
+    });
+
+    saltIons = saltIons.filter(p => !p.dead);
+}
+
+// --- Main Loop ---
+
+function animate() {
+    updateCu();
+    updateNi();
+    updateSaltBridge();
+    requestAnimationFrame(animate);
+}
+
+// --- Controls ---
+const toggle = document.getElementById('modeToggle');
+const optForward = document.getElementById('optForward');
+const optReverse = document.getElementById('optReverse');
+const resetBtn = document.getElementById('resetBtn');
+
+// Labels
+const l1 = document.getElementById('label1');
+const l2 = document.getElementById('label2');
+const l3 = document.getElementById('label3');
+
+toggle.addEventListener('click', () => {
+    // Switch Mode
+    if(SIM_STATE.mode === 'forward') {
+        SIM_STATE.mode = 'reverse';
+        toggle.setAttribute('data-mode', 'reverse');
+        optForward.classList.remove('active');
+        optReverse.classList.add('active');
+        
+        // Update Labels
+        l1.innerText = 'Cu Reduction (Cathode)';
+        l2.innerText = 'Ni Oxidation (Anode)';
+        l3.innerText = 'Salt Bridge (Cl⁻ Migration)';
+    } else {
+        SIM_STATE.mode = 'forward';
+        toggle.setAttribute('data-mode', 'forward');
+        optForward.classList.add('active');
+        optReverse.classList.remove('active');
+
+        // Update Labels
+        l1.innerText = 'Cu Oxidation (Anode)';
+        l2.innerText = 'Ni Reduction (Cathode)';
+        l3.innerText = 'Salt Bridge (K⁺ Migration)';
+    }
+    // Clean slate on switch to prevent physics glitches
+    initCu();
+    initNi();
+    initSaltBridge();
+});
+
+resetBtn.addEventListener('click', () => {
+    initCu();
+    initNi();
+    initSaltBridge();
+});
+
+// --- Initialization ---
+initCu();
+initNi();
+initSaltBridge();
+animate();
+
+</script>
+</body>
+</html>
