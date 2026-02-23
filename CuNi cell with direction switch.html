@@ -285,11 +285,11 @@ function initCu() {
     cuAtoms = [];
     cuIons = [];
     electrons1 = [];
-    // Lattice
-    const rows = 8;
+    // Lattice - fill entire vertical range
+    const rows = 15; // Increased to fill canvas height (340px)
     const cols = 6;
     const startX = -20;
-    const startY = 60;
+    const startY = 10; // Start near top
     const spacing = 22;
 
     for (let c = 0; c < cols; c++) {
@@ -333,13 +333,13 @@ function updateCu() {
             ion.vy = (Math.random() - 0.5) * 0.5;
             cuIons.push(ion);
 
-            // Create Electrons leaving left
+            // Create Electrons leaving upward (more visible)
             for(let i=0; i<2; i++) {
-                let e = new Particle(atomToOxidize.x, atomToOxidize.y + (i*5), 'electron');
+                let e = new Particle(atomToOxidize.x, atomToOxidize.y, 'electron');
                 e.color = COLORS.electron;
-                e.scale = 0.4;
-                e.vx = -2; 
-                e.vy = (Math.random() - 0.5);
+                e.scale = 0.8; // Larger electrons
+                e.vx = (Math.random() - 0.5) * 0.5; // Slight horizontal drift
+                e.vy = -2.5; // Move upward
                 e.glow = true;
                 electrons1.push(e);
             }
@@ -348,16 +348,16 @@ function updateCu() {
         // --- REDUCTION (Cathode) ---
         // Spawn Ion from solution (Right) moving Left
         if (Math.random() < 0.02 * SIM_STATE.speed) {
-            let ion = new Particle(340, 60 + Math.random() * 180, 'ion');
+            let ion = new Particle(340, 10 + Math.random() * 320, 'ion');
             ion.color = COLORS.cuIon;
-            ion.targetRow = Math.floor(Math.random() * 8);
+            ion.targetRow = Math.floor(Math.random() * 15);
             
             // Target the surface (Find max X for this row)
             let rowAtoms = cuAtoms.filter(a => a.row === ion.targetRow);
             let targetX = rowAtoms.length > 0 ? Math.max(...rowAtoms.map(a => a.x)) + 22 : -20 + (6*22); // Default if empty??
             
             ion.targetX = targetX;
-            ion.targetY = 60 + ion.targetRow * 22;
+            ion.targetY = 10 + ion.targetRow * 22;
 
             let dx = ion.targetX - ion.x;
             let dy = ion.targetY - ion.y;
@@ -375,17 +375,18 @@ function updateCu() {
                  // Add atom
                  let newAtom = new Particle(p.targetX, p.targetY, 'atom');
                  newAtom.color = COLORS.cuAtom;
-                 newAtom.row = Math.round((p.targetY - 60)/22);
+                 newAtom.row = Math.round((p.targetY - 10)/22);
                  // Approx col
                  newAtom.col = Math.round((p.targetX + 20)/22);
                  cuAtoms.push(newAtom);
 
-                 // Flash electrons arriving from left
+                 // Flash electrons arriving from top (more visible)
                  for(let k=0; k<2; k++){
-                    let e = new Particle(p.targetX - 20, p.targetY, 'electron');
+                    let e = new Particle(p.targetX, p.targetY - 30, 'electron');
                     e.color = COLORS.electron;
-                    e.scale = 0.4;
-                    e.vx = 1; // Arriving from Left
+                    e.scale = 0.8; // Larger
+                    e.vx = 0;
+                    e.vy = 2.5; // Arriving from top
                     e.glow = true;
                     e.opacity = 1;
                     electrons1.push(e);
@@ -416,11 +417,17 @@ function updateCu() {
 
     electrons1.forEach(p => {
         p.update();
-        if(p.x < -20 && p.vx < 0) p.dead = true; // Left edge
-        if(p.x > 360 && p.vx > 0) p.dead = true; // Right edge check? Not needed for left inset
+        // Edge detection
+        if(SIM_STATE.mode === 'forward') {
+            // Oxidation: electrons move upward
+            if(p.y < -20) p.dead = true; // Top edge
+        } else {
+            // Reduction: electrons arrive from top moving downward
+            if(p.vy > 0) {
+                p.opacity -= 0.1; // Fade as they reach the surface
+            }
+        }
         if(p.opacity <= 0) p.dead = true; // For flash fade
-        // Fade logic for arrival
-        if(SIM_STATE.mode === 'reverse' && p.vx > 0) p.opacity -= 0.1;
         p.draw(ctx1);
     });
 
@@ -440,10 +447,10 @@ function initNi() {
     niIons = [];
     electrons2 = [];
     
-    const rows = 8;
+    const rows = 15; // Increased to fill canvas height (340px)
     const cols = 6;
     const startX = 220; 
-    const startY = 60;
+    const startY = 10; // Start near top
     const spacing = 22;
 
     for (let c = 0; c < cols; c++) {
@@ -475,16 +482,16 @@ function updateNi() {
         // --- REDUCTION (Cathode) ---
         // Existing logic: Ion spawns Left, moves Right
         if (Math.random() < 0.02 * SIM_STATE.speed) {
-            let ion = new Particle(0, 60 + Math.random() * 180, 'ion');
+            let ion = new Particle(0, 10 + Math.random() * 320, 'ion');
             ion.color = COLORS.niIon;
-            ion.targetRow = Math.floor(Math.random() * 8);
+            ion.targetRow = Math.floor(Math.random() * 15);
             
             // Target the surface (Min X)
             let rowAtoms = niAtoms.filter(a => a.row === ion.targetRow);
             let targetX = rowAtoms.length > 0 ? Math.min(...rowAtoms.map(a => a.x)) - 22 : 220;
 
             ion.targetX = targetX; 
-            ion.targetY = 60 + ion.targetRow * 22;
+            ion.targetY = 10 + ion.targetRow * 22;
             
             let dx = ion.targetX - ion.x;
             let dy = ion.targetY - ion.y;
@@ -502,16 +509,17 @@ function updateNi() {
                     p.dead = true;
                     let newAtom = new Particle(p.targetX, p.targetY, 'atom');
                     newAtom.color = COLORS.niAtom;
-                    newAtom.row = Math.round((p.targetY - 60)/22);
+                    newAtom.row = Math.round((p.targetY - 10)/22);
                     newAtom.col = Math.round((p.targetX - 220)/22); // Approximate
                     niAtoms.push(newAtom);
 
-                    // Flash electrons arriving from right
+                    // Flash electrons arriving from top (more visible)
                     for(let k=0; k<2; k++){
-                        let e = new Particle(p.targetX + 20, p.targetY, 'electron');
+                        let e = new Particle(p.targetX, p.targetY - 30, 'electron');
                         e.color = COLORS.electron;
-                        e.scale = 0.4;
-                        e.vx = -1; // From right
+                        e.scale = 0.8; // Larger
+                        e.vx = 0;
+                        e.vy = 2.5; // From top
                         e.glow = true;
                         e.opacity = 1;
                         electrons2.push(e);
@@ -536,13 +544,13 @@ function updateNi() {
             ion.vy = (Math.random() - 0.5) * 0.5;
             niIons.push(ion);
 
-            // Create Electrons leaving Right
+            // Create Electrons leaving upward (more visible)
             for(let i=0; i<2; i++) {
-                let e = new Particle(atomToOxidize.x, atomToOxidize.y + (i*5), 'electron');
+                let e = new Particle(atomToOxidize.x, atomToOxidize.y, 'electron');
                 e.color = COLORS.electron;
-                e.scale = 0.4;
-                e.vx = 2; // Move Right
-                e.vy = (Math.random() - 0.5);
+                e.scale = 0.8; // Larger
+                e.vx = (Math.random() - 0.5) * 0.5; // Slight horizontal drift
+                e.vy = -2.5; // Move upward
                 e.glow = true;
                 electrons2.push(e);
             }
@@ -566,11 +574,14 @@ function updateNi() {
     electrons2.forEach(p => {
         p.update();
         if(SIM_STATE.mode === 'forward') {
-            p.opacity -= 0.1;
+            // Reduction: electrons arrive from top
+            if(p.vy > 0) {
+                p.opacity -= 0.1; // Fade as they reach surface
+            }
             if(p.opacity <= 0) p.dead = true;
         } else {
-            // Oxidation mode: electrons fly right
-            if(p.x > 360) p.dead = true;
+            // Oxidation mode: electrons fly upward
+            if(p.y < -20) p.dead = true;
         }
         p.draw(ctx2);
     });
