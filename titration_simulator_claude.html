@@ -250,7 +250,7 @@ function drawSpecies(vol) {
   const xVe = xS(Ve), xMax = xS(maxVol);
 
   // Rectangle height scales proportionally with concentration
-  const R_H = R_H_REF * (concHCl / concRef);
+  const R_H = R_H_REF * (concHA / concRef);
   const R_TOP = R_BOT - R_H;
 
   // Diagonal slope is fixed: at ref conc the diagonal spans R_H_REF px tall
