@@ -232,14 +232,15 @@ function clearSVG(s) { while (s.firstChild) s.removeChild(s.firstChild); }
 
 // ── Species panel ──────────────────────────────────────────────────────────────
 // Layout (viewBox 600×100):
-//   OH- triangle: y = 2 (top) to y = 42 (base), sits above HA/A- rect
-//   gap of 4px
-//   HA/A- rectangle: y = 46 (top) to y = 86 (bottom) → height 40
-//   x-axis line at y=86, no tick labels (shared with pH panel below)
-const SL = 46, SR = 16; // left/right margin
+//   OH- triangle: tip fixed at OH_TOP=2, base always at R_BOT=86
+//   HA/A- rectangle: bottom fixed at R_BOT=86, top scales with concentration
+//   Diagonal slope is fixed (calibrated to concRef=0.10 M, R_H_REF=40 px tall)
+const SL = 46, SR = 16;
 const SW = 600 - SL - SR;
-const OH_TOP = 2, OH_BOT = 42, OH_H = 40;  // OH- triangle height = RECT_H
-const R_TOP = 46, R_BOT = 86, R_H = 40;    // HA/A- rectangle
+const R_BOT = 86;        // fixed bottom of acid/base rect and OH- triangle base
+const R_H_REF = 40;      // rect height at reference concentration (0.10 M)
+const concRef = 0.10;
+const OH_TOP = 2;        // fixed tip of OH- triangle
 
 function drawSpecies(vol) {
   const svg = document.getElementById('species-svg');
@@ -248,19 +249,31 @@ function drawSpecies(vol) {
   const xS = v => SL + (v / maxVol) * SW;
   const xVe = xS(Ve), xMax = xS(maxVol);
 
+  // Rectangle height scales proportionally with concentration
+  const R_H = R_H_REF * (concHCl / concRef);
+  const R_TOP = R_BOT - R_H;
+
+  // Diagonal slope is fixed: at ref conc the diagonal spans R_H_REF px tall
+  // over (xVe_ref - SL) px wide, where xVe_ref is Ve at reference concentration.
+  // xVe_ref = SL + (Ve_ref / maxVol) * SW, Ve_ref = (concRef*V_HA)/concNaOH = 100 mL
+  const xVe_ref = xS((concRef * V_HA) / concNaOH);
+  const diagSlope = R_H_REF / (xVe_ref - SL); // SVG-y units per SVG-x unit
+  // Where the fixed-slope diagonal, starting at (SL, R_BOT), reaches R_TOP:
+  const xDiagTop = SL + R_H / diagSlope;
+
   el('rect',{x:0,y:0,width:600,height:100,fill:'#fafaf8'},svg);
   el('rect',{x:SL,y:OH_TOP,width:SW,height:R_BOT-OH_TOP,fill:'#f5f3ef'},svg);
 
-  // HA: right triangle, full height at x=0, zero at x=Ve (points down-right)
-  el('polygon',{points:`${SL},${R_BOT} ${SL},${R_TOP} ${xVe},${R_TOP}`,
+  // HA: triangle with fixed-slope diagonal
+  el('polygon',{points:`${SL},${R_BOT} ${SL},${R_TOP} ${xDiagTop},${R_TOP}`,
     fill:'var(--ha-color)',opacity:'0.88'},svg);
 
-  // A-: mirror triangle (zero at x=0, full at x=Ve), then flat rectangle to end
-  el('polygon',{points:`${SL},${R_BOT} ${xVe},${R_TOP} ${xMax},${R_TOP} ${xMax},${R_BOT}`,
+  // A-: fills from the diagonal to xMax, down to R_BOT
+  el('polygon',{points:`${SL},${R_BOT} ${xDiagTop},${R_TOP} ${xMax},${R_TOP} ${xMax},${R_BOT}`,
     fill:'var(--conj-color)',opacity:'0.88'},svg);
 
-  // OH-: same slope as A-, triangle from (Ve,OH_BOT) rising to (xMax,OH_TOP)
-  el('polygon',{points:`${xVe},${OH_BOT} ${xMax},${OH_TOP} ${xMax},${OH_BOT}`,
+  // OH-: triangle with fixed tip at (xMax, OH_TOP), base from (xVe, R_TOP) to (xMax, R_TOP)
+  el('polygon',{points:`${xVe},${R_TOP} ${xMax},${OH_TOP} ${xMax},${R_TOP}`,
     fill:'var(--oh-color)',opacity:'0.85'},svg);
 
   // Current volume line
@@ -273,20 +286,15 @@ function drawSpecies(vol) {
     stroke:'var(--eq-line)',strokeWidth:'1','stroke-dasharray':'3,3'},svg);
   el('text',{x:xVe,y:R_BOT,fill:'var(--eq-line)',fontSize:'8',textAnchor:'middle'},svg,'Vₑ');
 
-  // V½ marker
-  const xH = xS(Ve/2);
-  el('line',{x1:xH,y1:R_TOP,x2:xH,y2:R_BOT+6,
-    stroke:'var(--accent)',strokeWidth:'0.7','stroke-dasharray':'2,3',opacity:'0.4'},svg);
-  el('text',{x:xH,y:R_BOT,fill:'var(--accent)',fontSize:'7',textAnchor:'middle'},svg,'V½');
-
-  // Y axis + labels
+  // Y axis + labels: 100% label tracks R_TOP
   el('line',{x1:SL,y1:OH_TOP,x2:SL,y2:R_BOT,stroke:'#aaa',strokeWidth:'1'},svg);
   el('text',{x:SL-4,y:R_TOP+4,fill:'#888',fontSize:'7',textAnchor:'end'},svg,'100%');
   el('text',{x:SL-4,y:R_BOT,  fill:'#888',fontSize:'7',textAnchor:'end'},svg,'0%');
 
-  // Bottom axis line (no labels — pH panel below has them)
+  // Bottom axis line
   el('line',{x1:SL,y1:R_BOT,x2:xMax,y2:R_BOT,stroke:'#aaa',strokeWidth:'1'},svg);
 }
+
 
 // ── pH Panel + integrated slider ───────────────────────────────────────────────
 // viewBox 600×270
