@@ -407,7 +407,9 @@ function drawPH(vol) {
 function getSVGX(clientX) {
   const svg = document.getElementById('ph-svg');
   const r = svg.getBoundingClientRect();
-  return (clientX - r.left) / r.width * 600;
+  const pt = svg.createSVGPoint();
+  pt.x = clientX; pt.y = 0;
+  return pt.matrixTransform(svg.getScreenCTM().inverse()).x
 }
 function onMouseDown(e)  { isDragging = true; applyDrag(e.clientX); e.preventDefault(); }
 function onTouchStart(e) { isDragging = true; applyDrag(e.touches[0].clientX); e.preventDefault(); }
