@@ -1,0 +1,529 @@
+<!DOCTYPE html>
+<html lang="en">
+<!-- 
+  Developed with Karsten Theis and Claude (Anthropic) via interactive conversation.
+  Chat transcript: https://claude.ai/share/7c5135c7-0ae5-461d-a8d4-209bc9e292a9
+  March 2026
+-->
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Weak Acid–Strong Base Titration</title>
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,wght@0,300;0,400;0,600;1,300&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #f7f4ef;
+    --panel: #ffffff;
+    --border: #ddd8ce;
+    --text: #1a1a2e;
+    --text-muted: #6b6560;
+    --accent: #2d5a8e;
+    --ha-color: #7ab3d4;
+    --conj-color: #8b7ba8;
+    --oh-color: #f07070;
+    --eq-line: #e0a030;
+    --shadow: 0 2px 12px rgba(0,0,0,0.08);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    font-family: 'Source Serif 4', Georgia, serif;
+    color: var(--text);
+    min-height: 100vh;
+    padding: 20px;
+  }
+  h1 {
+    text-align: center;
+    font-size: 1.4rem;
+    font-weight: 300;
+    letter-spacing: 0.04em;
+    margin-bottom: 4px;
+  }
+  h1 span { font-style: italic; color: var(--accent); }
+  .subtitle {
+    text-align: center;
+    font-size: 0.78rem;
+    color: var(--text-muted);
+    font-family: 'JetBrains Mono', monospace;
+    margin-bottom: 16px;
+    letter-spacing: 0.02em;
+  }
+  .main-grid {
+    display: grid;
+    grid-template-columns: 1fr 190px;
+    gap: 10px;
+    max-width: 960px;
+    margin: 0 auto;
+  }
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    box-shadow: var(--shadow);
+  }
+  .left-col { display: flex; flex-direction: column; gap: 10px; }
+  .right-col { display: flex; flex-direction: column; gap: 10px; }
+
+  #species-panel { padding: 10px 12px 0 12px; }
+  #ph-panel      { padding: 10px 12px 6px 12px; }
+
+  .panel-title {
+    font-size: 0.70rem;
+    font-weight: 400;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--text-muted);
+    margin-bottom: 4px;
+    font-family: 'JetBrains Mono', monospace;
+  }
+
+  #apparatus-panel {
+    padding: 10px 8px 10px 8px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+  #controls {
+    padding: 12px 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .param-group { display: flex; flex-direction: column; gap: 3px; }
+  .param-group label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.70rem;
+    color: var(--text-muted);
+  }
+  .param-row { display: flex; align-items: center; gap: 6px; }
+  input[type=range] {
+    flex: 1; height: 4px; -webkit-appearance: none;
+    background: var(--border); border-radius: 2px; outline: none; cursor: pointer; min-width: 0;
+  }
+  input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none; width: 13px; height: 13px; border-radius: 50%;
+    background: var(--accent); cursor: pointer; box-shadow: 0 1px 4px rgba(0,0,0,0.2);
+  }
+  .param-val {
+    font-family: 'JetBrains Mono', monospace; font-size: 0.70rem;
+    color: var(--accent); width: 46px; text-align: right; flex-shrink: 0;
+  }
+  .info-block {
+    border-top: 1px solid var(--border); padding-top: 8px;
+    display: flex; flex-direction: column; gap: 4px;
+  }
+  .info-chip {
+    font-family: 'JetBrains Mono', monospace; font-size: 0.68rem;
+    color: var(--text-muted); line-height: 1.5;
+  }
+  .info-chip span { color: var(--text); font-weight: 500; }
+  .legend {
+    display: flex; gap: 12px; padding: 5px 0 7px 0; flex-wrap: wrap;
+  }
+  .legend-item {
+    display: flex; align-items: center; gap: 5px;
+    font-family: 'JetBrains Mono', monospace; font-size: 0.66rem; color: var(--text-muted);
+  }
+  .legend-swatch { width: 12px; height: 9px; border-radius: 2px; opacity: 0.85; }
+</style>
+</head>
+<body>
+
+<h1>Weak Acid – Strong Base <span>Titration</span></h1>
+<div class="subtitle" id="subtitle-params">HA (0.10 M, pKa = 4.75) · NaOH (0.10 M) · volume change neglected</div>
+
+<div class="main-grid">
+  <div class="left-col">
+
+    <div class="panel" id="species-panel">
+      <div class="panel-title">Species Distribution</div>
+      <svg id="species-svg" width="100%" height="100" viewBox="0 0 600 100" preserveAspectRatio="xMidYMid meet"></svg>
+      <div class="legend">
+        <div class="legend-item"><div class="legend-swatch" style="background:var(--ha-color)"></div>HA (weak acid)</div>
+        <div class="legend-item"><div class="legend-swatch" style="background:var(--conj-color)"></div>A⁻ (conjugate base)</div>
+        <div class="legend-item"><div class="legend-swatch" style="background:var(--oh-color)"></div>OH⁻ (excess base)</div>
+      </div>
+    </div>
+
+    <div class="panel" id="ph-panel">
+      <div class="panel-title">pH Curve</div>
+      <svg id="ph-svg" width="100%" height="270" viewBox="0 0 600 270" preserveAspectRatio="xMidYMid meet"></svg>
+    </div>
+
+  </div>
+
+  <div class="right-col">
+
+    <div class="panel" id="apparatus-panel">
+      <div class="panel-title" style="align-self:flex-start">Apparatus</div>
+      <svg id="apparatus-svg" width="160" height="340" viewBox="0 0 160 340"></svg>
+    </div>
+
+    <div class="panel" id="controls">
+      <div class="param-group">
+        <label>pKₐ</label>
+        <div class="param-row">
+          <input type="range" id="pka-slider" min="3" max="9" value="4.75" step="0.05">
+          <div class="param-val" id="pka-display">4.75</div>
+        </div>
+      </div>
+      <div class="param-group">
+        <label>[HA]₀</label>
+        <div class="param-row">
+          <input type="range" id="conc-slider" min="0.08" max="0.12" value="0.1" step="0.001">
+          <div class="param-val" id="conc-display">0.10 M</div>
+        </div>
+      </div>
+      <div class="info-block">
+        <div class="info-chip">pH = <span id="info-ph">—</span></div>
+        <div class="info-chip">Vₑ = <span id="info-ve">—</span></div>
+        <div class="info-chip">pH(Vₑ) = <span id="info-ph-ve">—</span></div>
+        <div class="info-chip">Stage: <span id="info-stage">—</span></div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+// ── State ──────────────────────────────────────────────────────────────────────
+const Kw = 1e-14;
+let pKa = 4.75, concHA = 0.10;
+const concNaOH = 0.10, V_HA = 100;
+const maxVol = 200;
+let currentVol = 0;
+let isDragging = false;
+
+function getVe() { return (concHA * V_HA) / concNaOH; }
+
+// ── pH Calculation ─────────────────────────────────────────────────────────────
+function calcPH(v) {
+  const Ka = Math.pow(10, -pKa);
+  const Ve = getVe();
+  const nHA = concHA * V_HA / 1000;
+  const nBase = concNaOH * v / 1000;
+  if (v <= 0) {
+    const x = (-Ka + Math.sqrt(Ka*Ka + 4*Ka*concHA)) / 2;
+    return -Math.log10(x);
+  }
+  if (v < Ve - 0.001) {
+    return pKa + Math.log10(nBase / (nHA - nBase));
+  }
+  if (Math.abs(v - Ve) < 0.001) {
+    const C_A = nHA / ((V_HA + v) / 1000);
+    const x = Math.sqrt((Kw / Ka) * C_A);
+    return 14 + Math.log10(x);
+  }
+  // excess base
+  const concOH = (nBase - nHA) / ((V_HA + v) / 1000);
+  return 14 + Math.log10(concOH);
+}
+
+// ── SVG helpers ────────────────────────────────────────────────────────────────
+const NS = "http://www.w3.org/2000/svg";
+function el(tag, attrs, parent, txt) {
+  const e = document.createElementNS(NS, tag);
+  for (const [k,v] of Object.entries(attrs)) e.setAttribute(k, v);
+  if (txt !== undefined) e.textContent = txt;
+  if (parent) parent.appendChild(e);
+  return e;
+}
+function clearSVG(s) { while (s.firstChild) s.removeChild(s.firstChild); }
+
+// ── Species panel ──────────────────────────────────────────────────────────────
+// Layout (viewBox 600×100):
+//   OH- triangle: y = 2 (top) to y = 42 (base), sits above HA/A- rect
+//   gap of 4px
+//   HA/A- rectangle: y = 46 (top) to y = 86 (bottom) → height 40
+//   x-axis line at y=86, no tick labels (shared with pH panel below)
+const SL = 46, SR = 16; // left/right margin
+const SW = 600 - SL - SR;
+const OH_TOP = 2, OH_BOT = 42, OH_H = 40;  // OH- triangle height = RECT_H
+const R_TOP = 46, R_BOT = 86, R_H = 40;    // HA/A- rectangle
+
+function drawSpecies(vol) {
+  const svg = document.getElementById('species-svg');
+  clearSVG(svg);
+  const Ve = getVe();
+  const xS = v => SL + (v / maxVol) * SW;
+  const xVe = xS(Ve), xMax = xS(maxVol);
+
+  el('rect',{x:0,y:0,width:600,height:100,fill:'#fafaf8'},svg);
+  el('rect',{x:SL,y:OH_TOP,width:SW,height:R_BOT-OH_TOP,fill:'#f5f3ef'},svg);
+
+  // HA: right triangle, full height at x=0, zero at x=Ve (points down-right)
+  el('polygon',{points:`${SL},${R_BOT} ${SL},${R_TOP} ${xVe},${R_TOP}`,
+    fill:'var(--ha-color)',opacity:'0.88'},svg);
+
+  // A-: mirror triangle (zero at x=0, full at x=Ve), then flat rectangle to end
+  el('polygon',{points:`${SL},${R_BOT} ${xVe},${R_TOP} ${xMax},${R_TOP} ${xMax},${R_BOT}`,
+    fill:'var(--conj-color)',opacity:'0.88'},svg);
+
+  // OH-: same slope as A-, triangle from (Ve,OH_BOT) rising to (xMax,OH_TOP)
+  el('polygon',{points:`${xVe},${OH_BOT} ${xMax},${OH_TOP} ${xMax},${OH_BOT}`,
+    fill:'var(--oh-color)',opacity:'0.85'},svg);
+
+  // Current volume line
+  const xN = xS(vol);
+  el('line',{x1:xN,y1:OH_TOP,x2:xN,y2:R_BOT,
+    stroke:'#1a1a2e',strokeWidth:'1.5','stroke-dasharray':'4,3',opacity:'0.5'},svg);
+
+  // Ve marker
+  el('line',{x1:xVe,y1:OH_TOP,x2:xVe,y2:R_BOT+12,
+    stroke:'var(--eq-line)',strokeWidth:'1','stroke-dasharray':'3,3'},svg);
+  el('text',{x:xVe,y:R_BOT,fill:'var(--eq-line)',fontSize:'8',textAnchor:'middle'},svg,'Vₑ');
+
+  // V½ marker
+  const xH = xS(Ve/2);
+  el('line',{x1:xH,y1:R_TOP,x2:xH,y2:R_BOT+6,
+    stroke:'var(--accent)',strokeWidth:'0.7','stroke-dasharray':'2,3',opacity:'0.4'},svg);
+  el('text',{x:xH,y:R_BOT,fill:'var(--accent)',fontSize:'7',textAnchor:'middle'},svg,'V½');
+
+  // Y axis + labels
+  el('line',{x1:SL,y1:OH_TOP,x2:SL,y2:R_BOT,stroke:'#aaa',strokeWidth:'1'},svg);
+  el('text',{x:SL-4,y:R_TOP+4,fill:'#888',fontSize:'7',textAnchor:'end'},svg,'100%');
+  el('text',{x:SL-4,y:R_BOT,  fill:'#888',fontSize:'7',textAnchor:'end'},svg,'0%');
+
+  // Bottom axis line (no labels — pH panel below has them)
+  el('line',{x1:SL,y1:R_BOT,x2:xMax,y2:R_BOT,stroke:'#aaa',strokeWidth:'1'},svg);
+}
+
+// ── pH Panel + integrated slider ───────────────────────────────────────────────
+// viewBox 600×270
+// PH_T=10, PH_B=56 → plot height = 270-10-56 = 204
+const PL = 46, PR = 16, PT = 10, PB = 56;
+const PW = 600 - PL - PR;
+const PH = 270 - PT - PB; // 204
+const SL_Y  = 270 - 14;   // slider track y
+const SL_X1 = PL, SL_X2 = PL + PW;
+const THR = 8;             // thumb radius
+
+function xToVol(svgX) {
+  return Math.max(0, Math.min(maxVol, (svgX - SL_X1) / PW * maxVol));
+}
+
+function drawPH(vol) {
+  const svg = document.getElementById('ph-svg');
+  clearSVG(svg);
+  const Ve = getVe();
+  const xS = v => PL + (v / maxVol) * PW;
+  const yS = ph => PT + (1 - (Math.max(0,Math.min(14,ph))) / 14) * PH;
+
+  el('rect',{x:0,y:0,width:600,height:270,fill:'#fafaf8'},svg);
+  el('rect',{x:PL,y:PT,width:PW,height:PH,fill:'#f5f3ef'},svg);
+
+  // pH=7 line
+  el('line',{x1:PL,y1:yS(7),x2:PL+PW,y2:yS(7),
+    stroke:'#ccc',strokeWidth:'0.8','stroke-dasharray':'3,4'},svg);
+  el('text',{x:PL-4,y:yS(7)+3,fill:'#bbb',fontSize:'8',textAnchor:'end'},svg,'7');
+
+  // Ve line
+  const xVe = xS(Ve);
+  el('line',{x1:xVe,y1:PT,x2:xVe,y2:PT+PH,
+    stroke:'var(--eq-line)',strokeWidth:'1','stroke-dasharray':'3,3'},svg);
+
+  // Y axis
+  el('line',{x1:PL,y1:PT,x2:PL,y2:PT+PH,stroke:'#aaa',strokeWidth:'1'},svg);
+  for (let p = 0; p <= 14; p += 2) {
+    const yT = yS(p);
+    el('line',{x1:PL-3,y1:yT,x2:PL,y2:yT,stroke:'#aaa',strokeWidth:'1'},svg);
+    el('text',{x:PL-5,y:yT+3,fill:'#888',fontSize:'8',textAnchor:'end'},svg,`${p}`);
+  }
+  el('text',{x:13,y:PT+PH/2,fill:'#888',fontSize:'9',textAnchor:'middle',
+    transform:`rotate(-90,13,${PT+PH/2})`},svg,'pH');
+
+  // X axis
+  el('line',{x1:PL,y1:PT+PH,x2:PL+PW,y2:PT+PH,stroke:'#aaa',strokeWidth:'1'},svg);
+  for (let v = 0; v <= maxVol; v += 25) {
+    const xT = xS(v);
+    el('line',{x1:xT,y1:PT+PH,x2:xT,y2:PT+PH+4,stroke:'#aaa',strokeWidth:'1'},svg);
+    el('text',{x:xT,y:PT+PH+13,fill:'#888',fontSize:'8',textAnchor:'middle'},svg,`${v}`);
+  }
+  el('text',{x:PL+PW/2,y:PT+PH+25,fill:'#aaa',fontSize:'9',textAnchor:'middle'},
+    svg,'Volume NaOH (mL)');
+
+  // ── Full curve (light grey, shows future) ────────────────────────────────
+  let dFull = '';
+  for (let v = 0; v <= maxVol; v += 0.5) {
+    const cx = xS(v), cy = yS(calcPH(v));
+    dFull += (v===0 ? 'M' : 'L') + `${cx.toFixed(1)},${cy.toFixed(1)} `;
+  }
+  el('path',{d:dFull,fill:'none',stroke:'#f7f4ef',strokeWidth:'1.5',
+    'stroke-linejoin':'round','stroke-linecap':'round'},svg);
+
+  // ── Revealed curve (accent, up to current vol) ───────────────────────────
+  if (vol > 0.1) {
+    let dRev = '';
+    let first = true;
+    for (let v = 0; v <= vol; v += 0.5) {
+      const cx = xS(v), cy = yS(calcPH(v));
+      dRev += (first ? 'M' : 'L') + `${cx.toFixed(1)},${cy.toFixed(1)} `;
+      first = false;
+    }
+    // Ensure we include exactly vol
+    const cx = xS(vol), cy = yS(calcPH(vol));
+    dRev += `L${cx.toFixed(1)},${cy.toFixed(1)}`;
+    el('path',{d:dRev,fill:'none',stroke:'var(--accent)',strokeWidth:'2',
+      'stroke-linejoin':'round','stroke-linecap':'round'},svg);
+  }
+
+  // Dot + crosshair at current position
+  const curX = xS(vol), curPH = calcPH(vol), curY = yS(curPH);
+  el('line',{x1:PL,y1:curY,x2:curX,y2:curY,
+    stroke:'#999',strokeWidth:'0.8','stroke-dasharray':'3,3',opacity:'0.5'},svg);
+  el('line',{x1:curX,y1:curY,x2:curX,y2:PT+PH,
+    stroke:'#999',strokeWidth:'0.8','stroke-dasharray':'3,3',opacity:'0.5'},svg);
+  el('text',{x:PL-5,y:curY+3,fill:'var(--accent)',fontSize:'9',textAnchor:'end',
+    fontWeight:'500'},svg,curPH.toFixed(2));
+  el('circle',{cx:curX,cy:curY,r:'5',fill:'var(--accent)',stroke:'white',strokeWidth:'2'},svg);
+
+  // Ve label
+  el('text',{x:xVe,y:PT+PH+13,fill:'var(--eq-line)',fontSize:'8',textAnchor:'middle'},svg,'Vₑ');
+
+  // ── Slider ───────────────────────────────────────────────────────────────
+  // Track
+  el('line',{x1:SL_X1,y1:SL_Y,x2:SL_X2,y2:SL_Y,
+    stroke:'#d0cbc4',strokeWidth:'5',strokeLinecap:'round'},svg);
+  // Filled portion
+  const tX = xS(vol);
+  el('line',{x1:SL_X1,y1:SL_Y,x2:tX,y2:SL_Y,
+    stroke:'var(--accent)',strokeWidth:'5',strokeLinecap:'round',opacity:'0.45'},svg);
+  // Thumb
+  el('circle',{cx:tX,cy:SL_Y,r:THR,
+    fill:'var(--accent)',stroke:'white',strokeWidth:'2',style:'cursor:ew-resize'},svg);
+  // Volume label (above thumb, clamped to stay inside)
+  const lx = Math.max(SL_X1+18, Math.min(tX, SL_X2-18));
+  el('text',{x:lx,y:SL_Y-11,fill:'var(--accent)',fontSize:'9',textAnchor:'middle',
+    fontWeight:'500'},svg,`${vol.toFixed(1)} mL`);
+
+  // Invisible drag hit area
+  const hit = el('rect',{x:SL_X1-4,y:SL_Y-14,width:PW+8,height:28,
+    fill:'transparent',style:'cursor:ew-resize'},svg);
+  hit.addEventListener('mousedown',  onMouseDown);
+  hit.addEventListener('touchstart', onTouchStart, {passive:false});
+}
+
+// ── Slider drag ───────────────────────────────────────────────────────────────
+function getSVGX(clientX) {
+  const svg = document.getElementById('ph-svg');
+  const r = svg.getBoundingClientRect();
+  return (clientX - r.left) / r.width * 600;
+}
+function onMouseDown(e)  { isDragging = true; applyDrag(e.clientX); e.preventDefault(); }
+function onTouchStart(e) { isDragging = true; applyDrag(e.touches[0].clientX); e.preventDefault(); }
+function applyDrag(clientX) { currentVol = xToVol(getSVGX(clientX)); update(); }
+
+document.addEventListener('mousemove', e => { if (isDragging) applyDrag(e.clientX); });
+document.addEventListener('mouseup',   () => { isDragging = false; });
+document.addEventListener('touchmove', e => { if (isDragging) applyDrag(e.touches[0].clientX); }, {passive:false});
+document.addEventListener('touchend',  () => { isDragging = false; });
+
+// ── Apparatus ─────────────────────────────────────────────────────────────────
+function drawApparatus(vol) {
+  const svg = document.getElementById('apparatus-svg');
+  clearSVG(svg);
+
+  // Burette
+  const bCX=80, bW=16, bTop=22, bBot=196;
+  const bX = bCX - bW/2;
+  const ff = Math.max(0, 1 - vol / maxVol);
+  const ft = bTop + (1-ff)*(bBot-bTop);
+
+  el('rect',{x:bX,y:bTop,width:bW,height:bBot-bTop,
+    fill:'#e8f4fb',stroke:'#7ab3d4',strokeWidth:'1.2',rx:'2'},svg);
+  if (ff > 0.005) {
+    el('rect',{x:bX+1,y:ft,width:bW-2,height:Math.max(0,bBot-ft-1),
+      fill:'rgba(45,90,142,0.28)',rx:'1'},svg);
+  }
+  // Ticks on right side only
+  for (let i=0; i<=10; i++) {
+    const yT = bTop + (i/10)*(bBot-bTop);
+    const tw = i%5===0 ? 6 : 3;
+    el('line',{x1:bX+bW,y1:yT,x2:bX+bW+tw,y2:yT,stroke:'#aaa',strokeWidth:'0.8'},svg);
+    if (i%5===0) {
+      el('text',{x:bX+bW+tw+3,y:yT+3,fill:'#999',fontSize:'7',textAnchor:'start'},
+        svg,`${i*10}%`);
+    }
+  }
+  // Stopcock
+  el('rect',{x:bX-2,y:bBot,width:bW+4,height:5,fill:'#ccc',rx:'2',
+    stroke:'#aaa',strokeWidth:'0.8'},svg);
+  // Tip + drop
+  el('line',{x1:bCX,y1:bBot+5,x2:bCX,y2:bBot+15,stroke:'#7ab3d4',strokeWidth:'2'},svg);
+  if (vol>0)
+    el('ellipse',{cx:bCX,cy:bBot+19,rx:'3',ry:'4',fill:'rgba(45,90,142,0.4)'},svg);
+  el('text',{x:bCX,y:bTop-5,fill:'#888',fontSize:'8',textAnchor:'middle'},svg,'NaOH');
+
+  // Flask (Erlenmeyer)
+  const fCX=80, fNT=216, fNB=240, fNW=18;
+  const fBW=82, fBH=62, fBT=fNB;
+
+  const pH = calcPH(vol);
+  let fill;
+  if (pH < 8.2) {
+    fill = 'rgba(200,230,255,0.22)';
+  } else if (pH <= 10) {
+    const a = (pH-8.2)/1.8;
+    fill = `rgba(255,${Math.round(200*(1-a))},${Math.round(200-73*a)},${(0.28+a*0.47).toFixed(2)})`;
+  } else {
+    fill = 'rgba(255,0,127,0.75)';
+  }
+
+  const bp = [
+    `${fCX-fNW/2},${fNB}`,
+    `${fCX-fBW/2},${fBT+fBH}`,
+    `${fCX+fBW/2},${fBT+fBH}`,
+    `${fCX+fNW/2},${fNB}`
+  ].join(' ');
+  el('polygon',{points:bp,fill,stroke:'#7ab3d4',strokeWidth:'1.2'},svg);
+  el('rect',{x:fCX-fNW/2,y:fNT,width:fNW,height:fNB-fNT,fill,stroke:'#7ab3d4',strokeWidth:'1.2'},svg);
+  el('line',{x1:fCX-fNW/2-2,y1:fNT,x2:fCX+fNW/2+2,y2:fNT,stroke:'#7ab3d4',strokeWidth:'2'},svg);
+
+  el('text',{x:fCX,y:fBT+fBH/2+8,fill:'#1a1a2e',fontSize:'10',textAnchor:'middle',
+    fontWeight:'500'},svg,`pH ${pH.toFixed(2)}`);
+  el('text',{x:fCX-fBW/2-10,y:fBT+fBH+16,fill:'#aaa',fontSize:'4',textAnchor:'middle'},
+    svg,'phenolphthalein');
+}
+
+// ── Stage label ───────────────────────────────────────────────────────────────
+function getStage(vol) {
+  const Ve = getVe();
+  if (vol <= 0)                    return 'Pure weak acid';
+  if (Math.abs(vol-Ve/2) < 1.5)   return 'Half-equivalence · pH = pKₐ';
+  if (vol < Ve-0.5)                return 'Buffer region';
+  if (Math.abs(vol-Ve) < 0.5)     return 'Equivalence point';
+  return 'Excess NaOH';
+}
+
+// ── Update ────────────────────────────────────────────────────────────────────
+function update() {
+  const vol = currentVol;
+  const Ve = getVe();
+  document.getElementById('info-ph').textContent    = calcPH(vol).toFixed(2);
+  document.getElementById('info-ve').textContent    = `${Ve.toFixed(0)} mL`;
+  document.getElementById('info-ph-ve').textContent = calcPH(Ve).toFixed(2);
+  document.getElementById('info-stage').textContent = getStage(vol);
+  drawSpecies(vol);
+  drawPH(vol);
+  drawApparatus(vol);
+}
+
+document.getElementById('pka-slider').addEventListener('input', function() {
+  pKa = parseFloat(this.value);
+  document.getElementById('pka-display').textContent = pKa.toFixed(2);
+  document.getElementById('subtitle-params').textContent =
+    `HA (${concHA.toFixed(2)} M, pKa = ${pKa.toFixed(2)}) · NaOH (0.10 M) · volume change neglected`;
+  update();
+});
+document.getElementById('conc-slider').addEventListener('input', function() {
+  concHA = parseFloat(this.value);
+  document.getElementById('conc-display').textContent = `${concHA.toFixed(2)} M`;
+  document.getElementById('subtitle-params').textContent =
+    `HA (${concHA.toFixed(2)} M, pKa = ${pKa.toFixed(2)}) · NaOH (0.10 M) · volume change neglected`;
+  update();
+});
+
+update();
+</script>
+</body>
+</html>
