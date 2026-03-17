@@ -513,14 +513,14 @@ const state = {
 function fmt(val) {
   const abs = Math.abs(val);
   if (abs === 0) return '0.000';
-  if (abs >= 1000 || abs < 0.001) return val.toExponential(3);
+  if (abs >= 1000 || abs < 0.010) return val.toExponential(2);
   return val.toFixed(3);
 }
 function fmtXi(val) {
   if (!isFinite(val)) return '—';
   const abs = Math.abs(val);
   if (abs === 0) return '0.0000';
-  if (abs >= 1000 || (abs < 0.0001 && abs > 0)) return val.toExponential(3);
+  if (abs >= 1000 || (abs < 0.010 && abs > 0)) return val.toExponential(2);
   return val.toFixed(4);
 }
 
@@ -854,7 +854,7 @@ function updateICERows(xi) {
     cE.textContent = fmt(E);
 
     if (Math.abs(change) < 1e-12) {
-      cC.textContent = '0.000'; cC.className = 'zero';
+      cC.textContent = '0.00'; cC.className = 'zero';
     } else if (change > 0) {
       cC.textContent = `+${fmt(Math.abs(change))}`; cC.className = 'pos';
     } else {
