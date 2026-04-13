@@ -1,0 +1,579 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Thermodynamics Explorer</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:system-ui,-apple-system,sans-serif;color:#1a1a1a;background:#f8f7f4;min-height:100vh;padding:24px 16px}
+.app{max-width:920px;margin:0 auto}
+h1{font-size:22px;font-weight:600;margin-bottom:4px;color:#1a1a1a}
+.subtitle{font-size:14px;color:#666;margin-bottom:20px}
+.tabs{display:flex;gap:0;margin-bottom:20px;border-bottom:1.5px solid #ddd}
+.tab{padding:9px 18px;font-size:14px;font-weight:500;cursor:pointer;border:none;background:none;color:#888;border-bottom:2.5px solid transparent;margin-bottom:-1.5px;transition:color 0.15s}
+.tab.active{color:#185FA5;border-bottom-color:#185FA5}
+.tab:hover:not(.active){color:#444}
+.panel{display:none}.panel.active{display:block}
+.controls{background:#fff;border-radius:12px;border:1px solid #e5e3de;padding:18px 20px;margin-bottom:20px}
+.row{display:flex;align-items:center;gap:12px;margin-bottom:14px}
+.row:last-child{margin-bottom:0}
+label{font-size:13px;color:#555;min-width:180px}
+input[type=range]{flex:1;accent-color:#185FA5}
+.val{font-size:13px;font-weight:600;min-width:110px;text-align:right;color:#1a1a1a}
+.drag-hint{font-size:11px;color:#aaa;text-align:right;margin-top:4px}
+.charts{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+@media(max-width:620px){.charts{grid-template-columns:1fr}}
+.chart-wrap{background:#fff;border:1px solid #e5e3de;border-radius:12px;padding:16px}
+.chart-wrap h3{font-size:13px;font-weight:600;margin-bottom:12px;color:#555;text-transform:uppercase;letter-spacing:0.03em}
+.legend{display:flex;flex-wrap:wrap;gap:10px;font-size:12px;color:#666;margin-top:8px}
+.legend span{display:flex;align-items:center;gap:5px}
+.legend .dot{width:12px;height:3px;border-radius:2px;display:inline-block}
+.verdict{margin-top:14px;padding:11px 15px;border-radius:8px;font-size:13px;line-height:1.65}
+.verdict.spont{background:#e6f7ee;color:#1a6e3c;border:1px solid #9fd4b8}
+.verdict.nonspont{background:#fdecea;color:#8b1a1a;border:1px solid #f5a5a5}
+.verdict.mixed{background:#fff8e1;color:#7a5200;border:1px solid #f5cc6e}
+.eq-box{background:#f3f2ef;border-radius:8px;padding:9px 14px;font-size:13px;margin-bottom:14px;line-height:1.9;color:#555;border:1px solid #e5e3de}
+.eq-box b{color:#1a1a1a;font-weight:600}
+/* Work diagram */
+.work-outer{display:flex;justify-content:center;gap:40px;flex-wrap:wrap;padding:12px 0 8px}
+.bar-col{display:flex;flex-direction:column;align-items:center;gap:6px}
+.bar-col .lbl{font-size:12px;font-weight:600;text-align:center}
+.bar-area{width:56px;position:relative;display:flex;flex-direction:column;align-items:center}
+.seg{width:44px;border-radius:2px;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:600;letter-spacing:0.01em}
+.tip-down{width:0;height:0;border-left:10px solid transparent;border-right:10px solid transparent}
+.tip-up{width:0;height:0;border-left:10px solid transparent;border-right:10px solid transparent}
+.work-info{font-size:13px;color:#555;text-align:center;line-height:1.7;margin:10px auto 0;max-width:500px}
+.zero-line{width:100%;border-top:1.5px dashed #bbb;position:absolute}
+</style>
+</head>
+<body>
+<div class="app">
+  <h1>Thermodynamics Explorer</h1>
+  <p class="subtitle">Adjust ΔH° and ΔS° to explore spontaneity, equilibrium, and the work–heat partition.</p>
+
+  <div class="controls">
+    <div class="row">
+      <label>ΔH° (kJ mol⁻¹)</label>
+      <input type="range" id="dH" min="-200" max="200" step="1" value="-80">
+      <span class="val" id="dH_val">−80 kJ/mol</span>
+    </div>
+    <div class="row">
+      <label>ΔS° (J mol⁻¹ K⁻¹)</label>
+      <input type="range" id="dS" min="-300" max="300" step="1" value="120">
+      <span class="val" id="dS_val">+120 J/mol·K</span>
+    </div>
+    <div class="row">
+      <label>Highlight T (K)</label>
+      <input type="range" id="Tmark" min="100" max="1500" step="10" value="298">
+      <span class="val" id="Tmark_val">298 K</span>
+    </div>
+    <div class="drag-hint" id="drag-hint"></div>
+  </div>
+
+  <div class="tabs">
+    <button class="tab active" onclick="switchTab('gibbs')">ΔG &amp; Spontaneity</button>
+    <button class="tab" onclick="switchTab('equil')">K vs Temperature</button>
+    <button class="tab" onclick="switchTab('work')">Work vs Heat</button>
+  </div>
+
+  <!-- Panel 1: Gibbs -->
+  <div class="panel active" id="panel-gibbs">
+    <div class="eq-box">
+      ΔG° = ΔH° − T·ΔS° &nbsp;|&nbsp; slope = −ΔS°, y-intercept = ΔH° &nbsp;|&nbsp; spontaneous when <b>ΔG° &lt; 0</b>
+    </div>
+    <div class="charts">
+      <div class="chart-wrap">
+        <h3>ΔG° vs temperature</h3>
+        <div style="position:relative;height:260px"><canvas id="gChart" role="img" aria-label="ΔG versus temperature line chart"></canvas></div>
+        <div class="legend">
+          <span><span class="dot" style="background:#185FA5"></span>ΔG° = ΔH° − TΔS°</span>
+          <span><span class="dot" style="background:#E24B4A;border-top:2px dashed #E24B4A;height:0;width:14px"></span>ΔG° = 0</span>
+        </div>
+      </div>
+      <div class="chart-wrap">
+        <h3>Component breakdown at highlighted T</h3>
+        <div style="position:relative;height:260px"><canvas id="bChart" role="img" aria-label="Bar chart showing ΔH, TΔS, and ΔG contributions"></canvas></div>
+        <div class="legend">
+          <span><span class="dot" style="background:#D85A30"></span>ΔH°</span>
+          <span><span class="dot" style="background:#378ADD"></span>TΔS°</span>
+          <span><span class="dot" style="background:#1D9E75"></span>ΔG°</span>
+        </div>
+      </div>
+    </div>
+    <div class="verdict" id="verdict"></div>
+  </div>
+
+  <!-- Panel 2: K -->
+  <div class="panel" id="panel-equil">
+    <div class="eq-box">
+      ln K = −ΔH°/RT + ΔS°/R &nbsp;|&nbsp; van't Hoff: ln K vs 1/T is a <b>straight line</b>, slope = −ΔH°/R &nbsp;|&nbsp; K &gt; 1 when ln K &gt; 0
+    </div>
+    <div class="charts">
+      <div class="chart-wrap">
+        <h3>ln K vs T &nbsp;<span style="font-weight:400;color:#aaa;font-size:11px">(right axis: K)</span></h3>
+        <div style="position:relative;height:260px"><canvas id="kChart" role="img" aria-label="ln K versus temperature with K on right axis"></canvas></div>
+        <div class="legend">
+          <span><span class="dot" style="background:#7F77DD"></span>ln K (left axis) &nbsp; K (right axis)</span>
+        </div>
+      </div>
+      <div class="chart-wrap">
+        <h3>ln K vs 1/T &nbsp;<span style="font-weight:400;color:#aaa;font-size:11px">(van't Hoff, right axis: K)</span></h3>
+        <div style="position:relative;height:260px"><canvas id="klinChart" role="img" aria-label="ln K versus 1/T van't Hoff plot with K on right axis"></canvas></div>
+        <div class="legend">
+          <span><span class="dot" style="background:#D85A30"></span>ln K (left axis) &nbsp; K (right axis)</span>
+        </div>
+      </div>
+    </div>
+    <div class="verdict" id="verdict2"></div>
+  </div>
+
+  <!-- Panel 3: Work -->
+  <div class="panel" id="panel-work">
+    <div class="eq-box">
+      w<sub>max</sub> = ΔG° = ΔH° − TΔS° &nbsp;|&nbsp; heat = TΔS° &nbsp;|&nbsp;
+      ΔH° = w<sub>max</sub> + TΔS° &nbsp;|&nbsp; TΔS° is the entropy <b>bonus</b> (ΔS°&gt;0) or <b>malus</b> (ΔS°&lt;0)
+    </div>
+    <p style="font-size:13px;color:#666;margin-bottom:16px">
+      At T = <span id="Twork" style="font-weight:600"></span> K, enthalpy ΔH° splits into maximum useful work (ΔG°) and heat exchanged with surroundings (TΔS°).
+      Scale is fixed to the largest value across all temperatures so bars stay comparable as you change T.
+    </p>
+    <div class="work-outer" id="workDiagram"></div>
+    <div class="work-info" id="workInfo"></div>
+    <div class="verdict" id="verdict3" style="margin-top:14px"></div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script>
+const R = 8.314;
+let debounceTimer = null;
+let isDragging = false;
+
+// Get all slider inputs
+const sliders = ['dH','dS','Tmark'].map(id=>document.getElementById(id));
+
+sliders.forEach(sl=>{
+  sl.addEventListener('mousedown',()=>{isDragging=true; document.getElementById('drag-hint').textContent='Release to update charts';});
+  sl.addEventListener('touchstart',()=>{isDragging=true; document.getElementById('drag-hint').textContent='Release to update charts';},{passive:true});
+  sl.addEventListener('input', ()=>{
+    updateLabels();
+    clearTimeout(debounceTimer);
+  });
+  sl.addEventListener('change', ()=>{
+    isDragging=false;
+    document.getElementById('drag-hint').textContent='';
+    update();
+  });
+  sl.addEventListener('mouseup',()=>{
+    if(isDragging){isDragging=false;document.getElementById('drag-hint').textContent='';update();}
+  });
+});
+
+function updateLabels(){
+  const dH=parseFloat(document.getElementById('dH').value);
+  const dS=parseFloat(document.getElementById('dS').value);
+  const T=parseFloat(document.getElementById('Tmark').value);
+  document.getElementById('dH_val').textContent=(dH>=0?'+':'')+dH.toFixed(0)+' kJ/mol';
+  document.getElementById('dS_val').textContent=(dS>=0?'+':'')+dS.toFixed(0)+' J/mol·K';
+  document.getElementById('Tmark_val').textContent=T.toFixed(0)+' K';
+  document.getElementById('Twork').textContent=T.toFixed(0);
+}
+
+function getVals(){
+  return {
+    dH: parseFloat(document.getElementById('dH').value)*1000,
+    dS: parseFloat(document.getElementById('dS').value),
+    T:  parseFloat(document.getElementById('Tmark').value)
+  };
+}
+
+function switchTab(name){
+  document.querySelectorAll('.tab').forEach((t,i)=>{
+    t.classList.toggle('active',['gibbs','equil','work'][i]===name);
+  });
+  document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
+  document.getElementById('panel-'+name).classList.add('active');
+}
+
+function mkChart(id,cfg){
+  const el=document.getElementById(id);
+  if(el._chart){el._chart.destroy();el._chart=null;}
+  const c=new Chart(el,cfg);
+  el._chart=c;
+  return c;
+}
+
+function categoryLabel(dH,dS,T){
+  const dG=dH-T*dS;
+  if(dH<0&&dS>0) return {cls:'spont',txt:'Both ΔH° &lt; 0 (exothermic) and ΔS° &gt; 0 (more dispersed): <b>spontaneous at all temperatures</b>. ΔG° is always negative.'};
+  if(dH>0&&dS<0) return {cls:'nonspont',txt:'Both ΔH° &gt; 0 (endothermic) and ΔS° &lt; 0 (less dispersed): <b>non-spontaneous at all temperatures</b>. ΔG° is always positive.'};
+  if(dH<0&&dS<0){
+    const Tc=(dH/dS);
+    return dG<0
+      ?{cls:'spont',txt:`ΔH° &lt; 0 but ΔS° &lt; 0: spontaneous <b>below T = ${Tc.toFixed(0)} K</b>. At the marked T, ΔG° &lt; 0 ✓. Entropy term wins at high T.`}
+      :{cls:'nonspont',txt:`ΔH° &lt; 0 but ΔS° &lt; 0: spontaneous <b>below T = ${Tc.toFixed(0)} K</b>. At the marked T, ΔG° &gt; 0 ✗. Temperature too high.`};
+  }
+  if(dH>0&&dS>0){
+    const Tc=(dH/dS);
+    return dG<0
+      ?{cls:'spont',txt:`ΔH° &gt; 0 but ΔS° &gt; 0: spontaneous <b>above T = ${Tc.toFixed(0)} K</b>. At the marked T, ΔG° &lt; 0 ✓. Entropy wins at high T.`}
+      :{cls:'nonspont',txt:`ΔH° &gt; 0 but ΔS° &gt; 0: spontaneous <b>above T = ${Tc.toFixed(0)} K</b>. At the marked T, ΔG° &gt; 0 ✗. Temperature too low.`};
+  }
+  return {cls:'mixed',txt:''};
+}
+
+function update(){
+  const {dH,dS,T}=getVals();
+  updateLabels();
+  updateGibbs(dH,dS,T);
+  updateK(dH,dS,T);
+  updateWork(dH,dS,T);
+  const v=categoryLabel(dH,dS,T);
+  document.getElementById('verdict').className='verdict '+v.cls;
+  document.getElementById('verdict').innerHTML=v.txt;
+  document.getElementById('verdict3').className='verdict '+v.cls;
+  document.getElementById('verdict3').innerHTML=v.txt;
+}
+
+const gridC='rgba(0,0,0,0.07)', textC='#888';
+const chartOpts=(xTitle,yTitle)=>({
+  responsive:true,maintainAspectRatio:false,
+  animation:{duration:0},
+  plugins:{legend:{display:false}},
+  scales:{
+    x:{title:{display:true,text:xTitle,color:textC,font:{size:11}},ticks:{color:textC,maxTicksLimit:8},grid:{color:gridC}},
+    y:{title:{display:true,text:yTitle,color:textC,font:{size:11}},ticks:{color:textC},grid:{color:gridC}}
+  }
+});
+
+function updateGibbs(dH,dS,T){
+  const Ts=[],dGs=[];
+  for(let t=100;t<=1500;t+=20){Ts.push(t);dGs.push((dH-t*dS)/1000);}
+  const nearIdx=Ts.reduce((bi,t,i)=>Math.abs(t-T)<Math.abs(Ts[bi]-T)?i:bi,0);
+  const markData=Ts.map((_,i)=>i===nearIdx?(dH-Ts[i]*dS)/1000:null);
+
+  mkChart('gChart',{
+    type:'line',
+    data:{labels:Ts,datasets:[
+      {label:'ΔG°',data:dGs,borderColor:'#185FA5',borderWidth:2,pointRadius:0,tension:0.1,fill:false},
+      {label:'zero',data:Ts.map(()=>0),borderColor:'#E24B4A',borderWidth:1,borderDash:[5,4],pointRadius:0,fill:false},
+      {label:'mark',data:markData,borderWidth:0,pointRadius:Ts.map((_,i)=>i===nearIdx?6:0),pointBackgroundColor:'#1D9E75',showLine:false}
+    ]},
+    options:{...chartOpts('T (K)','ΔG° (kJ/mol)'),plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>`ΔG° = ${c.parsed.y.toFixed(1)} kJ/mol`}}}}
+  });
+
+  const dGv=(dH-T*dS)/1000;
+  const TdSv=T*dS/1000;  // TΔS° (positive means more dispersed, heat to surroundings)
+  mkChart('bChart',{
+    type:'bar',
+    data:{
+      labels:['ΔH°','TΔS°','ΔG°'],
+      datasets:[{
+        data:[dH/1000, TdSv, dGv],
+        backgroundColor:['rgba(216,90,48,0.55)','rgba(55,138,221,0.55)','rgba(29,158,117,0.55)'],
+        borderColor:['#D85A30','#378ADD','#1D9E75'],
+        borderWidth:1.5
+      }]
+    },
+    options:{
+      responsive:true,maintainAspectRatio:false,animation:{duration:0},
+      plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>`${c.parsed.y.toFixed(1)} kJ/mol`}}},
+      scales:{
+        x:{ticks:{color:textC},grid:{color:gridC}},
+        y:{title:{display:true,text:'kJ/mol',color:textC,font:{size:11}},ticks:{color:textC},grid:{color:gridC}}
+      }
+    }
+  });
+}
+
+function fmtK(K){
+  if(K>=1e6) return K.toExponential(1);
+  if(K>=1000) return K.toFixed(0);
+  if(K>=10) return K.toFixed(1);
+  if(K>=0.01) return K.toFixed(3);
+  return K.toExponential(1);
+}
+
+function dualKAxis(lnMin,lnMax){
+  // Build right-axis K tick values that land on ln K positions of the left axis
+  // We'll let Chart.js handle left ticks and mirror with a custom right axis using the same min/max
+  // The right axis maps lnK -> K = exp(lnK), displayed at each left tick
+  return {min:lnMin, max:lnMax};
+}
+
+function updateK(dH,dS,T){
+  // Data arrays
+  const Ts=[],lnKs=[];
+  for(let t=200;t<=1500;t+=20){
+    const lnK=-(dH-t*dS)/(R*t);
+    Ts.push(t); lnKs.push(+lnK.toFixed(4));
+  }
+  // 1/T data
+  const invTs=Ts.map(t=>+(1/t).toFixed(6));
+  const nearIdx=Ts.reduce((bi,t,i)=>Math.abs(t-T)<Math.abs(Ts[bi]-T)?i:bi,0);
+  const lnKmark=lnKs[nearIdx];
+  const Kmark=Math.exp(Math.max(-80,Math.min(80,lnKmark)));
+
+  // Compute y axis range for ln K
+  const lnMin=Math.min(...lnKs), lnMax=Math.max(...lnKs);
+  const lnPad=(lnMax-lnMin)*0.08||1;
+  const yMin=lnMin-lnPad, yMax=lnMax+lnPad;
+
+  // Build nice tick values for the right K axis: pick 6 evenly-spaced ln K positions
+  function makeKTicks(yMin,yMax){
+    const ticks=[];
+    const step=(yMax-yMin)/5;
+    for(let i=0;i<=5;i++){
+      const lnVal=yMin+i*step;
+      ticks.push({lnVal, Kval:Math.exp(Math.max(-80,Math.min(80,lnVal)))});
+    }
+    return ticks;
+  }
+  const kTicks=makeKTicks(yMin,yMax);
+
+  // Shared dual-axis chart builder
+  function buildDualChart(canvasId, xLabels, xTitle, lineColor, markPtData){
+    mkChart(canvasId,{
+      type:'line',
+      data:{labels:xLabels, datasets:[
+        {label:'ln K', data:lnKs, borderColor:lineColor, borderWidth:2, pointRadius:0, tension:0.1, yAxisID:'y'},
+        {label:'zero', data:xLabels.map(()=>0), borderColor:'#E24B4A', borderWidth:1, borderDash:[5,4], pointRadius:0, yAxisID:'y'},
+        {label:'mark', data:markPtData, showLine:false,
+          pointRadius:markPtData.map(v=>v!==null?6:0),
+          pointBackgroundColor:'#1D9E75', borderWidth:0, yAxisID:'y'}
+      ]},
+      options:{
+        responsive:true, maintainAspectRatio:false, animation:{duration:0},
+        plugins:{
+          legend:{display:false},
+          tooltip:{callbacks:{label:c=>{
+            const lnK=c.parsed.y;
+            const K=Math.exp(Math.max(-80,Math.min(80,lnK)));
+            return `ln K = ${lnK.toFixed(2)},  K = ${fmtK(K)}`;
+          }}}
+        },
+        scales:{
+          x:{
+            title:{display:true,text:xTitle,color:textC,font:{size:11}},
+            ticks:{color:textC,maxTicksLimit:8},
+            grid:{color:gridC}
+          },
+          y:{
+            title:{display:true,text:'ln K',color:textC,font:{size:11}},
+            min:yMin, max:yMax,
+            ticks:{color:textC, maxTicksLimit:6},
+            grid:{color:gridC},
+            position:'left'
+          },
+          yRight:{
+            type:'linear',
+            position:'right',
+            min:yMin, max:yMax,
+            title:{display:true,text:'K',color:textC,font:{size:11}},
+            grid:{drawOnChartArea:false},
+            ticks:{
+              color:textC,
+              // Force ticks at exact ln K positions and label them as K values
+              callback: function(val){
+                // Find the closest kTick
+                let best=null, bestDist=Infinity;
+                for(const kt of kTicks){
+                  const d=Math.abs(kt.lnVal-val);
+                  if(d<bestDist){bestDist=d;best=kt;}
+                }
+                if(bestDist<(yMax-yMin)/10) return fmtK(best.Kval);
+                return null;
+              },
+              maxTicksLimit:6
+            }
+          }
+        }
+      }
+    });
+  }
+
+  // Left chart: ln K vs T
+  const markDataT=lnKs.map((_,i)=>i===nearIdx?lnKs[i]:null);
+  buildDualChart('kChart', Ts, 'T (K)', '#7F77DD', markDataT);
+
+  // Right chart: ln K vs 1/T (van't Hoff) — same y data, x = 1/T
+  // Note: 1/T decreases as T increases, so high T = small 1/T = right side; low T = large 1/T = left side
+  // We reverse so x goes from large 1/T (low T) to small 1/T (high T), matching left chart direction
+  const invTsRev=[...invTs].reverse();
+  const lnKsRev=[...lnKs].reverse();
+  const markDataInvT=lnKsRev.map((_,i)=>i===(lnKs.length-1-nearIdx)?lnKsRev[i]:null);
+
+  mkChart('klinChart',{
+    type:'line',
+    data:{labels:invTsRev, datasets:[
+      {label:'ln K', data:lnKsRev, borderColor:'#D85A30', borderWidth:2, pointRadius:0, tension:0.05, yAxisID:'y'},
+      {label:'zero', data:invTsRev.map(()=>0), borderColor:'#E24B4A', borderWidth:1, borderDash:[5,4], pointRadius:0, yAxisID:'y'},
+      {label:'mark', data:markDataInvT, showLine:false,
+        pointRadius:markDataInvT.map(v=>v!==null?6:0),
+        pointBackgroundColor:'#1D9E75', borderWidth:0, yAxisID:'y'}
+    ]},
+    options:{
+      responsive:true, maintainAspectRatio:false, animation:{duration:0},
+      plugins:{
+        legend:{display:false},
+        tooltip:{callbacks:{label:c=>{
+          const lnK=c.parsed.y;
+          const invT=c.parsed.x;
+          const K=Math.exp(Math.max(-80,Math.min(80,lnK)));
+          return `1/T = ${invT.toFixed(5)},  ln K = ${lnK.toFixed(2)},  K = ${fmtK(K)}`;
+        }}}
+      },
+      scales:{
+        x:{
+          title:{display:true,text:'1/T  (K⁻¹)',color:textC,font:{size:11}},
+          ticks:{color:textC,maxTicksLimit:7,
+            callback:v=>typeof v==='number'?v.toFixed(4):v
+          },
+          grid:{color:gridC}
+        },
+        y:{
+          title:{display:true,text:'ln K',color:textC,font:{size:11}},
+          min:yMin, max:yMax,
+          ticks:{color:textC,maxTicksLimit:6},
+          grid:{color:gridC},
+          position:'left'
+        },
+        yRight:{
+          type:'linear',
+          position:'right',
+          min:yMin, max:yMax,
+          title:{display:true,text:'K',color:textC,font:{size:11}},
+          grid:{drawOnChartArea:false},
+          ticks:{
+            color:textC,
+            callback: function(val){
+              let best=null, bestDist=Infinity;
+              for(const kt of kTicks){
+                const d=Math.abs(kt.lnVal-val);
+                if(d<bestDist){bestDist=d;best=kt;}
+              }
+              if(bestDist<(yMax-yMin)/10) return fmtK(best.Kval);
+              return null;
+            },
+            maxTicksLimit:6
+          }
+        }
+      }
+    }
+  });
+
+  const v=categoryLabel(dH,dS,T);
+  const lnKv=lnKmark.toFixed(2);
+  const Kv=fmtK(Kmark);
+  document.getElementById('verdict2').className='verdict '+v.cls;
+  document.getElementById('verdict2').innerHTML=`${v.txt} At ${T.toFixed(0)} K: ln K = ${lnKv}, K = ${Kv}. ${dH<0?'Exothermic: K decreases as T rises (Le Chatelier).':'Endothermic: K increases as T rises.'}`;
+}
+
+function updateWork(dH,dS,T){
+  document.getElementById('Twork').textContent=T.toFixed(0);
+
+  // Compute global min and max across ALL three quantities at ALL temperatures
+  // so the scale never changes when T slider moves
+  let globalMin=0, globalMax=0;
+  for(let t=100;t<=1500;t+=10){
+    const dGv=(dH-t*dS)/1000;
+    const TdSv=t*dS/1000;
+    const dHv=dH/1000; // constant, but include for clarity
+    globalMin=Math.min(globalMin,dHv,dGv,TdSv);
+    globalMax=Math.max(globalMax,dHv,dGv,TdSv);
+  }
+  // Add 5% padding
+  const span=Math.max(globalMax-globalMin,1);
+  globalMin-=span*0.05;
+  globalMax+=span*0.05;
+
+  const TOTAL_PX=280; // total height of diagram area in px
+  const PX_PER_UNIT=TOTAL_PX/(globalMax-globalMin);
+  // Pixel position of zero line from top
+  const zeroPx=globalMax*PX_PER_UNIT;
+
+  const dHkJ=dH/1000;
+  const TdSkJ=T*dS/1000;
+  const dGkJ=(dH-T*dS)/1000;
+
+  // Draw a single arrow bar on shared axis
+  // val in kJ; zero is at zeroPx from top
+  function arrowCol(val, color, label, sublabel){
+    const barPx=Math.abs(val)*PX_PER_UNIT;
+    const barH=Math.max(8,barPx);
+    const numStr=(val>=0?'+':'')+val.toFixed(1)+' kJ';
+    const down=val<0;
+
+    // top of bar in px from top of diagram
+    const barTop = down ? zeroPx : zeroPx - barH;
+    const tipH=10;
+
+    return `<div class="bar-col" style="position:relative">
+      <div class="lbl" style="color:${color};margin-bottom:4px">${label}</div>
+      <div style="position:relative;width:52px;height:${TOTAL_PX}px">
+        <!-- zero line -->
+        <div style="position:absolute;top:${zeroPx.toFixed(1)}px;left:0;right:0;border-top:1.5px dashed #bbb;z-index:2"></div>
+        <!-- bar -->
+        <div style="position:absolute;top:${barTop.toFixed(1)}px;left:4px;right:4px;height:${barH.toFixed(1)}px;
+             background:${color}25;border:1.5px solid ${color};
+             display:flex;align-items:center;justify-content:center;
+             font-size:9px;font-weight:600;color:${color};z-index:1">${numStr}</div>
+        <!-- arrowhead -->
+        ${down
+          ? `<div style="position:absolute;top:${(barTop+barH).toFixed(1)}px;left:50%;transform:translateX(-50%);
+               width:0;height:0;border-left:9px solid transparent;border-right:9px solid transparent;
+               border-top:${tipH}px solid ${color};z-index:3"></div>`
+          : `<div style="position:absolute;top:${(barTop-tipH).toFixed(1)}px;left:50%;transform:translateX(-50%);
+               width:0;height:0;border-left:9px solid transparent;border-right:9px solid transparent;
+               border-bottom:${tipH}px solid ${color};z-index:3"></div>`
+        }
+      </div>
+      <div style="font-size:11px;color:#999;text-align:center;margin-top:4px">${sublabel}</div>
+    </div>`;
+  }
+
+  // Y-axis ruler
+  function yAxis(){
+    const nTicks=6;
+    const step=(globalMax-globalMin)/(nTicks-1);
+    let ticks='';
+    for(let i=0;i<nTicks;i++){
+      const val=globalMax-i*step;
+      const py=(i/(nTicks-1))*TOTAL_PX;
+      const lbl=(val>=0?'+':'')+val.toFixed(0);
+      ticks+=`<div style="position:absolute;top:${py.toFixed(1)}px;right:0;transform:translateY(-50%);
+        font-size:10px;color:#aaa;text-align:right;white-space:nowrap">${lbl}</div>`;
+    }
+    return `<div style="position:relative;width:36px;height:${TOTAL_PX}px;margin-right:6px">
+      ${ticks}
+      <div style="position:absolute;top:${zeroPx.toFixed(1)}px;left:0;right:0;border-top:1.5px dashed #bbb"></div>
+    </div>`;
+  }
+
+  document.getElementById('workDiagram').innerHTML=
+    `<div style="display:flex;align-items:flex-start;gap:0">
+      ${yAxis()}
+      <div style="display:flex;gap:28px;align-items:flex-start">
+        ${arrowCol(dHkJ,'#D85A30','ΔH°','enthalpy')}
+        ${arrowCol(dGkJ,'#1D9E75','w_max = ΔG°','useful work')}
+        ${arrowCol(TdSkJ,'#378ADD','TΔS°','heat')}
+      </div>
+    </div>
+    <div style="margin-top:4px;padding-left:42px;font-size:10px;color:#aaa">kJ mol⁻¹</div>`;
+
+  const bonusStr=dS>0
+    ?`ΔS° &gt; 0 → entropy <b>bonus</b>: TΔS° = +${TdSkJ.toFixed(1)} kJ — surroundings contribute heat that becomes extra work`
+    :dS<0
+    ?`ΔS° &lt; 0 → entropy <b>malus</b>: |TΔS°| = ${Math.abs(TdSkJ).toFixed(1)} kJ lost to surroundings as heat`
+    :`ΔS° = 0: no entropy term — all enthalpy converts to work`;
+  document.getElementById('workInfo').innerHTML=
+    `<b>ΔH° = w<sub>max</sub> + TΔS°</b> &nbsp;→&nbsp; ${dHkJ.toFixed(1)} = ${dGkJ.toFixed(1)} + ${TdSkJ.toFixed(1)} kJ<br>
+    <span style="color:#888">${bonusStr}</span>`;
+}
+
+// Init
+update();
+</script>
+</body>
+</html>
