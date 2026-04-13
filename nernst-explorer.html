@@ -1,0 +1,511 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Nernst Equation Explorer — Zn/Cu Daniell Cell</title>
+<link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,300;0,6..72,400;0,6..72,600;1,6..72,400&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Newsreader', 'Georgia', serif;
+    background: #0a0f1a;
+    color: #d4dce8;
+    min-height: 100vh;
+    padding: 24px 16px;
+  }
+  .wrap { max-width: 660px; margin: 0 auto; }
+  .mono { font-family: 'JetBrains Mono', monospace; }
+
+  .header { margin-bottom: 28px; border-bottom: 1px solid #1e2a40; padding-bottom: 16px; }
+  .header h1 { font-size: 26px; font-weight: 300; letter-spacing: -0.02em; color: #e8ecf2; }
+  .header p { font-size: 13px; color: #6a7a94; margin-top: 6px; }
+
+  .panel {
+    background: #111827;
+    border: 1px solid #1e2a40;
+    border-radius: 8px;
+    padding: 14px 18px;
+    margin-bottom: 20px;
+  }
+
+  .eq-bar { text-align: center; font-size: 15px; letter-spacing: 0.01em; margin-bottom: 24px; }
+  .eq-dim { color: #6a7a94; }
+  .eq-std { color: #f0c36d; }
+  .eq-paren { color: #8b9ec2; }
+  .eq-slope { color: #7dd3a0; }
+  .eq-q { color: #e87171; }
+  .eq-result { font-weight: 600; font-size: 17px; transition: color 0.2s; }
+
+  .chart-panel { padding: 12px 8px 4px; }
+  .chart-svg { width: 100%; height: auto; display: block; cursor: crosshair; }
+
+  .controls { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 20px; }
+  .ctrl-label {
+    font-size: 12px; color: #6a7a94;
+    text-transform: uppercase; letter-spacing: 0.05em;
+  }
+  .ctrl-val { font-size: 14px; color: #e8ecf2; }
+  .ctrl-head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 8px; }
+  .ctrl-foot { display: flex; justify-content: space-between; font-size: 10px; color: #4a5a74; margin-top: 4px; }
+  input[type=range] { width: 100%; }
+  input[type=range]#discharge { accent-color: #f0c36d; }
+  input[type=range]#temperature { accent-color: #8b9ec2; }
+
+  .anim-btn {
+    width: 100%; padding: 10px; margin-bottom: 20px;
+    background: transparent; border: 1px solid #1e2a40; border-radius: 8px;
+    color: #8b9ec2; font-family: 'JetBrains Mono', monospace;
+    font-size: 13px; cursor: pointer; letter-spacing: 0.03em; transition: all 0.2s;
+  }
+  .anim-btn:hover { background: #111827; }
+  .anim-btn.running { background: #1a2236; color: #4a5a74; cursor: default; }
+
+  .conc-title { font-size: 12px; color: #6a7a94; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 14px; }
+  .conc-row { margin-bottom: 12px; }
+  .conc-head { display: flex; justify-content: space-between; margin-bottom: 4px; font-size: 14px; }
+  .conc-head small { font-size: 11px; color: #4a5a74; }
+  .bar-track { height: 20px; background: #0d1520; border-radius: 4px; overflow: hidden; }
+  .bar-fill { height: 100%; border-radius: 4px; transition: width 0.15s ease; }
+  .bar-cu { background: linear-gradient(90deg, #2a5a8a, #5ba3d9); }
+  .bar-zn { background: linear-gradient(90deg, #5a2a8a, #b07dd9); }
+  .cu-color { color: #5ba3d9; }
+  .zn-color { color: #b07dd9; }
+
+  .q-row {
+    display: flex; justify-content: space-between; align-items: center;
+    padding-top: 10px; border-top: 1px solid #1a2236;
+  }
+  .q-row + .q-row { padding-top: 6px; border-top: none; }
+  .q-label { font-size: 14px; color: #6a7a94; }
+  .q-val { font-size: 14px; color: #f0c36d; }
+  .k-val { font-size: 14px; color: #4a5a74; }
+
+  .eq-note {
+    display: flex; align-items: flex-start; gap: 8px;
+    margin-top: 10px; padding-top: 10px;
+    border-top: 1px solid #1a2236;
+    font-size: 12px; color: #6a7a94;
+    font-style: italic; line-height: 1.5;
+    opacity: 0;
+    max-height: 0;
+    overflow: hidden;
+    transition: opacity 0.4s, max-height 0.4s;
+  }
+  .eq-note.visible { opacity: 1; max-height: 100px; }
+  .eq-note .note-icon { color: #f0c36d; font-style: normal; flex-shrink: 0; }
+
+  .cards { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin-bottom: 16px; }
+  .card { border-radius: 8px; padding: 10px 12px; text-align: center; }
+  .card-label { font-size: 12px; font-weight: 600; margin-bottom: 4px; }
+  .card-desc { font-size: 12px; color: #6a7a94; font-style: italic; }
+
+  .footer {
+    font-size: 12px; color: #3a4a64; font-style: italic;
+    text-align: center; line-height: 1.6;
+  }
+
+  @media (max-width: 500px) {
+    .controls { grid-template-columns: 1fr; }
+    .cards { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="header">
+    <h1>The Nernst Equation</h1>
+    <p class="mono">Zn(s) + Cu²⁺(aq) → Zn²⁺(aq) + Cu(s) &nbsp;·&nbsp; E° = 1.10 V &nbsp;·&nbsp; z = 2</p>
+  </div>
+
+  <div class="panel eq-bar mono" id="eqBar"></div>
+
+  <div class="panel chart-panel">
+    <svg id="chart" class="chart-svg" viewBox="0 0 580 300" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <linearGradient id="curveGrad" x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0%" stop-color="#7dd3a0" stop-opacity="0.12"/>
+          <stop offset="70%" stop-color="#f0c36d" stop-opacity="0.08"/>
+          <stop offset="100%" stop-color="#e87171" stop-opacity="0.04"/>
+        </linearGradient>
+        <linearGradient id="curveStroke" x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0%" stop-color="#7dd3a0"/>
+          <stop offset="50%" stop-color="#f0c36d"/>
+          <stop offset="100%" stop-color="#e87171"/>
+        </linearGradient>
+      </defs>
+    </svg>
+  </div>
+
+  <div class="controls">
+    <div class="panel">
+      <div class="ctrl-head">
+        <label class="ctrl-label mono">Discharge</label>
+        <span class="ctrl-val mono" id="xiVal">0.0%</span>
+      </div>
+      <input type="range" id="discharge" min="0" max="1" step="0.0001" value="0">
+      <div class="ctrl-foot mono"><span>Fresh</span><span>Equilibrium (E = 0)</span></div>
+    </div>
+    <div class="panel">
+      <div class="ctrl-head">
+        <label class="ctrl-label mono">Temperature</label>
+        <span class="ctrl-val mono" id="tempVal">298 K (25°C)</span>
+      </div>
+      <input type="range" id="temperature" min="250" max="370" step="1" value="298">
+      <div class="ctrl-foot mono"><span>250 K</span><span>370 K</span></div>
+    </div>
+  </div>
+
+  <button class="anim-btn mono" id="animBtn">▶ Watch the battery discharge</button>
+
+  <div class="panel" id="concPanel">
+    <div class="conc-title mono">Concentrations in Solution</div>
+    <div class="conc-row">
+      <div class="conc-head">
+        <span class="cu-color">Cu²⁺ <small>(reactant)</small></span>
+        <span class="cu-color mono" id="cuVal">1.0000 M</span>
+      </div>
+      <div class="bar-track"><div class="bar-fill bar-cu" id="cuBar" style="width:100%"></div></div>
+    </div>
+    <div class="conc-row">
+      <div class="conc-head">
+        <span class="zn-color">Zn²⁺ <small>(product)</small></span>
+        <span class="zn-color mono" id="znVal">0.0010 M</span>
+      </div>
+      <div class="bar-track"><div class="bar-fill bar-zn" id="znBar" style="width:0.1%"></div></div>
+    </div>
+    <div class="q-row">
+      <span class="q-label">Q = [Zn²⁺] / [Cu²⁺]</span>
+      <span class="q-val mono" id="qVal">0.001</span>
+    </div>
+    <div class="q-row">
+      <span class="q-label">K (equilibrium)</span>
+      <span class="k-val mono" id="kVal"></span>
+    </div>
+    <div class="eq-note" id="eqNote">
+      <span class="note-icon">⚠</span>
+      <span id="eqNoteText"></span>
+    </div>
+  </div>
+
+  <div class="cards">
+    <div class="card" style="background:#0d1f15; border:1px solid #7dd3a022;">
+      <div class="card-label mono" style="color:#7dd3a0;">Fresh Battery</div>
+      <div class="card-desc">Q ≪ 1, E &gt; E°</div>
+    </div>
+    <div class="card" style="background:#1f1a0d; border:1px solid #f0c36d22;">
+      <div class="card-label mono" style="color:#f0c36d;">Q = 1</div>
+      <div class="card-desc">E = E° exactly</div>
+    </div>
+    <div class="card" style="background:#1f0d0d; border:1px solid #e8717122;">
+      <div class="card-label mono" style="color:#e87171;">Equilibrium</div>
+      <div class="card-desc">Q = K, E = 0 exactly</div>
+    </div>
+  </div>
+
+  <p class="footer">Drag the slider or hover over the curve. Initial conditions: [Cu²⁺]₀ = 1.000 M, [Zn²⁺]₀ = 0.001 M.<br>
+  The slider endpoint is true thermodynamic equilibrium — where Q reaches K and the cell potential is exactly zero.</p>
+</div>
+
+<script>
+(function() {
+  const R = 8.314, F_CONST = 96485, z = 2, E_STD = 1.10;
+  const C0_CU = 1.0, C0_ZN = 0.001;
+
+  const W = 580, H = 300;
+  const pad = { t: 20, r: 30, b: 50, l: 60 };
+  const cw = W - pad.l - pad.r;
+  const ch = H - pad.t - pad.b;
+  const yScale = v => pad.t + ch - (v / 1.3) * ch;
+
+  function nernstE(Q, T) {
+    if (Q <= 0) return E_STD;
+    return E_STD - (R * T) / (z * F_CONST) * Math.log(Q);
+  }
+  function getConc(xi) {
+    return { cu: Math.max(C0_CU * (1 - xi), 1e-50), zn: C0_ZN + C0_CU * xi };
+  }
+  function getQ(cu, zn) { return zn / cu; }
+  function getK(T) { return Math.exp(z * F_CONST * E_STD / (R * T)); }
+
+  // Exact equilibrium extent: solve Q = K for xi
+  // Q = (C0_ZN + C0_CU·xi) / (C0_CU·(1 - xi)) = K
+  // => xi_eq = (K·C0_CU - C0_ZN) / (C0_CU·(1 + K))
+  function getEqXi(T) {
+    const K = getK(T);
+    return (K * C0_CU - C0_ZN) / (C0_CU * (1 + K));
+  }
+
+  let xi = 0, temp = 298, hoveredXi = null, animating = false, animId = null;
+  let chartState = {};
+
+  const svg = document.getElementById('chart');
+  const dischargeEl = document.getElementById('discharge');
+  const tempEl = document.getElementById('temperature');
+  const animBtn = document.getElementById('animBtn');
+
+  function svgEl(tag, attrs) {
+    const el = document.createElementNS('http://www.w3.org/2000/svg', tag);
+    for (const [k, v] of Object.entries(attrs || {})) {
+      if (k === 'textContent') el.textContent = v;
+      else el.setAttribute(k, v);
+    }
+    return el;
+  }
+
+  function drawChart() {
+    // Keep the <defs> (first child), remove everything else
+    while (svg.children.length > 1) svg.removeChild(svg.lastChild);
+
+    const eqXi = getEqXi(temp);
+    // Map [0, eqXi] → full chart width so the right edge IS equilibrium (E=0)
+    const localXScale = v => pad.l + (v / eqXi) * cw;
+
+    dischargeEl.max = eqXi;
+    dischargeEl.step = eqXi / 10000;
+    if (xi > eqXi) { xi = eqXi; dischargeEl.value = xi; }
+
+    // Build curve with extra density near the end
+    const curveData = [];
+    const N = 800;
+    for (let i = 0; i <= N; i++) {
+      const frac = i / N;
+      const x = frac * eqXi;
+      const { cu, zn } = getConc(x);
+      const E = nernstE(getQ(cu, zn), temp);
+      curveData.push({ xi: x, E });
+    }
+
+    // --- Static grid ---
+    // Horizontal grid + y-axis labels
+    [0, 0.2, 0.4, 0.6, 0.8, 1.0, 1.2].forEach(v => {
+      svg.appendChild(svgEl('line', { x1: pad.l, y1: yScale(v), x2: W - pad.r, y2: yScale(v), stroke: '#1a2236', 'stroke-width': 1 }));
+      svg.appendChild(svgEl('text', { x: pad.l - 8, y: yScale(v) + 4, 'text-anchor': 'end', fill: '#4a5a74', 'font-size': 11, 'font-family': 'JetBrains Mono, monospace', textContent: v.toFixed(1) }));
+    });
+
+    // Vertical grid — percentages of extent
+    [0, 0.2, 0.4, 0.6, 0.8].forEach(frac => {
+      const sx = localXScale(frac * eqXi);
+      svg.appendChild(svgEl('line', { x1: sx, y1: pad.t, x2: sx, y2: H - pad.b, stroke: '#1a2236', 'stroke-width': 1 }));
+      svg.appendChild(svgEl('text', { x: sx, y: H - pad.b + 16, 'text-anchor': 'middle', fill: '#4a5a74', 'font-size': 11, 'font-family': 'JetBrains Mono, monospace', textContent: (frac * 100).toFixed(0) + '%' }));
+    });
+
+    // Right-edge tick at equilibrium
+    const eqSx = localXScale(eqXi);
+    svg.appendChild(svgEl('line', { x1: eqSx, y1: pad.t, x2: eqSx, y2: H - pad.b, stroke: '#1a2236', 'stroke-width': 1 }));
+    svg.appendChild(svgEl('text', { x: eqSx, y: H - pad.b + 16, 'text-anchor': 'middle', fill: '#e87171', 'font-size': 10, 'font-family': 'JetBrains Mono, monospace', textContent: '≈100%' }));
+
+    // Axis labels
+    svg.appendChild(svgEl('text', { x: W / 2, y: H - 4, 'text-anchor': 'middle', fill: '#6a7a94', 'font-size': 12, 'font-family': 'Newsreader, Georgia, serif', textContent: 'Extent of Reaction (% Cu²⁺ consumed)' }));
+    svg.appendChild(svgEl('text', { x: 14, y: H / 2, 'text-anchor': 'middle', fill: '#6a7a94', 'font-size': 12, 'font-family': 'Newsreader, Georgia, serif', transform: `rotate(-90, 14, ${H / 2})`, textContent: 'Cell Potential (V)' }));
+
+    // E=0 reference line
+    svg.appendChild(svgEl('line', { x1: pad.l, y1: yScale(0), x2: W - pad.r, y2: yScale(0), stroke: '#3a2020', 'stroke-width': 1.5, 'stroke-dasharray': '6,4' }));
+    svg.appendChild(svgEl('text', { x: pad.l + 4, y: yScale(0) - 6, 'text-anchor': 'start', fill: '#e87171', 'font-size': 10, 'font-family': 'JetBrains Mono, monospace', opacity: 0.7, textContent: 'E = 0  (dead battery)' }));
+
+    // E° reference line — extend to the Q=1 point on the curve
+    var xiQ1ForLine = (C0_CU - C0_ZN) / (2 * C0_CU);
+    svg.appendChild(svgEl('line', { x1: pad.l, y1: yScale(E_STD), x2: localXScale(xiQ1ForLine), y2: yScale(E_STD), stroke: '#2a3a20', 'stroke-width': 1.5, 'stroke-dasharray': '4,3' }));
+    svg.appendChild(svgEl('text', { x: pad.l + 64, y: yScale(E_STD) + 4, fill: '#7dd3a0', 'font-size': 10, 'font-family': 'JetBrains Mono, monospace', opacity: 0.7, textContent: 'E° = ' + E_STD.toFixed(2) + ' V' }));
+
+    // Phase labels
+    [
+      { label: 'Fresh', frac: 0.05 },
+      { label: 'Dying', frac: 0.88 },
+    ].forEach(p => {
+      svg.appendChild(svgEl('text', { x: localXScale(p.frac * eqXi), y: pad.t + 14, 'text-anchor': 'middle', fill: '#3a4a64', 'font-size': 11, 'font-family': 'Newsreader, Georgia, serif', 'font-style': 'italic', textContent: p.label }));
+    });
+
+    // Q = 1 marker: where [Zn²⁺] = [Cu²⁺]
+    // Solve: C0_ZN + C0_CU·xi = C0_CU·(1 - xi) → xi = (C0_CU - C0_ZN) / (2·C0_CU)
+    var xiQ1 = (C0_CU - C0_ZN) / (2 * C0_CU);
+    var q1Sx = localXScale(xiQ1);
+    svg.appendChild(svgEl('line', { x1: q1Sx, y1: yScale(E_STD) - 4, x2: q1Sx, y2: yScale(E_STD) + 30, stroke: '#f0c36d', 'stroke-width': 1, 'stroke-dasharray': '3,3', opacity: 0.5 }));
+    svg.appendChild(svgEl('circle', { cx: q1Sx, cy: yScale(E_STD), r: 3.5, fill: '#f0c36d', opacity: 0.7 }));
+    svg.appendChild(svgEl('text', { x: q1Sx, y: yScale(E_STD) + 42, 'text-anchor': 'middle', fill: '#f0c36d', 'font-size': 10, 'font-family': 'JetBrains Mono, monospace', opacity: 0.7, textContent: 'Q = 1' }));
+    svg.appendChild(svgEl('text', { x: q1Sx, y: yScale(E_STD) + 54, 'text-anchor': 'middle', fill: '#f0c36d', 'font-size': 10, 'font-family': 'JetBrains Mono, monospace', opacity: 0.5, textContent: 'E = E\u00B0' }));
+
+    // Equilibrium marker at right edge
+    svg.appendChild(svgEl('line', { x1: eqSx, y1: pad.t, x2: eqSx, y2: H - pad.b, stroke: '#e87171', 'stroke-width': 1, 'stroke-dasharray': '3,3', opacity: 0.5 }));
+    svg.appendChild(svgEl('text', { x: eqSx - 4, y: pad.t + 30, 'text-anchor': 'end', fill: '#e87171', 'font-size': 10, 'font-family': 'JetBrains Mono, monospace', opacity: 0.7, textContent: 'Q = K' }));
+
+    // --- Curve ---
+    const pathPts = curveData.map((p, i) => {
+      const sx = localXScale(p.xi);
+      const sy = yScale(Math.max(p.E, 0));
+      return `${i === 0 ? 'M' : 'L'}${sx},${sy}`;
+    }).join(' ');
+
+    // Fill under curve
+    const lastPt = curveData[curveData.length - 1];
+    const fillD = pathPts + ` L${localXScale(lastPt.xi)},${yScale(0)} L${localXScale(0)},${yScale(0)} Z`;
+    svg.appendChild(svgEl('path', { d: fillD, fill: 'url(#curveGrad)' }));
+
+    // Curve stroke
+    svg.appendChild(svgEl('path', { d: pathPts, fill: 'none', stroke: 'url(#curveStroke)', 'stroke-width': 2.5, 'stroke-linecap': 'round' }));
+
+    // Endpoint dot at E=0 to emphasize the curve truly reaches zero
+    svg.appendChild(svgEl('circle', { cx: localXScale(eqXi), cy: yScale(0), r: 4, fill: '#e87171', opacity: 0.7 }));
+
+    // --- Dynamic marker ---
+    const g = svgEl('g', { id: 'marker' });
+    g.appendChild(svgEl('line', { id: 'mVLine', stroke: '#e8ecf2', 'stroke-width': 1, 'stroke-dasharray': '2,2', opacity: 0.3 }));
+    g.appendChild(svgEl('line', { id: 'mHLine', stroke: '#e8ecf2', 'stroke-width': 1, 'stroke-dasharray': '2,2', opacity: 0.3 }));
+    g.appendChild(svgEl('circle', { id: 'mOuter', r: 6, fill: '#0a0f1a', stroke: '#e8ecf2', 'stroke-width': 2 }));
+    g.appendChild(svgEl('circle', { id: 'mInner', r: 3 }));
+    svg.appendChild(g);
+
+    chartState = { eqXi, localXScale };
+    return chartState;
+  }
+
+  function updateMarker(activeXi) {
+    const { cu, zn } = getConc(activeXi);
+    const E = nernstE(getQ(cu, zn), temp);
+    const ePos = Math.max(E, 0);
+    const cx = chartState.localXScale(activeXi);
+    const cy = yScale(ePos);
+
+    const setA = (id, attrs) => { const el = document.getElementById(id); for (const [k, v] of Object.entries(attrs)) el.setAttribute(k, v); };
+    setA('mVLine', { x1: cx, y1: cy, x2: cx, y2: yScale(0) });
+    setA('mHLine', { x1: pad.l, y1: cy, x2: cx, y2: cy });
+    setA('mOuter', { cx, cy });
+    setA('mInner', { cx, cy, fill: E > 0.5 ? '#7dd3a0' : E > 0.1 ? '#f0c36d' : '#e87171' });
+  }
+
+  function updateReadouts(activeXi) {
+    const { cu, zn } = getConc(activeXi);
+    const Q = getQ(cu, zn);
+    const E = nernstE(Q, temp);
+    const K = getK(temp);
+    const eqXi = chartState.eqXi;
+    const slope = (R * temp / (z * F_CONST)).toFixed(4);
+    const eColor = E > 0.5 ? '#7dd3a0' : E > 0.1 ? '#f0c36d' : '#e87171';
+
+    // Equation bar — show the actual E value
+    const eDisplay = Math.abs(E) > 0.0001 ? E.toFixed(4) : E.toExponential(2);
+    const lnQ = Q > 0 ? Math.log(Q) : 0;
+    const lnQStr = Math.abs(lnQ) < 1000 ? lnQ.toFixed(2) : lnQ.toExponential(2);
+    document.getElementById('eqBar').innerHTML =
+      '<span class="eq-dim">E = </span>' +
+      '<span class="eq-std">' + E_STD.toFixed(2) + '</span>' +
+      '<span class="eq-dim"> \u2212 </span>' +
+      '<span class="eq-paren">(</span>' +
+      '<span class="eq-slope">' + slope + '</span>' +
+      '<span class="eq-paren">)</span>' +
+      '<span class="eq-dim"> ln</span>' +
+      '<span class="eq-paren">(</span>' +
+      '<span class="eq-q">' + (Q < 1000 ? Q.toFixed(3) : Q.toExponential(2)) + '</span>' +
+      '<span class="eq-paren">)</span>' +
+      '<span class="eq-dim"> = </span>' +
+      '<span class="eq-result" style="color:' + eColor + '">' + eDisplay + ' V</span>';
+
+    // Slider readout
+    const pct = (activeXi / C0_CU) * 100;
+    var pctStr;
+    if (pct < 99.9) {
+      pctStr = pct.toFixed(1) + '%';
+    } else if (pct < 99.9999) {
+      pctStr = pct.toFixed(4) + '%';
+    } else {
+      pctStr = '\u2248 100% (equil.)';
+    }
+    document.getElementById('xiVal').textContent = pctStr;
+    document.getElementById('tempVal').textContent = temp + ' K (' + (temp - 273.15).toFixed(0) + '\u00B0C)';
+
+    // Concentrations — switch to scientific notation when small
+    document.getElementById('cuVal').textContent = cu >= 0.0001 ? cu.toFixed(4) + ' M' : cu.toExponential(2) + ' M';
+    document.getElementById('znVal').textContent = zn.toFixed(4) + ' M';
+    document.getElementById('cuBar').style.width = Math.max(cu / C0_CU * 100, 0.5) + '%';
+    document.getElementById('znBar').style.width = Math.max(zn / (C0_ZN + C0_CU) * 100, 0.5) + '%';
+
+    // Q and K
+    document.getElementById('qVal').textContent = Q < 10000 ? Q.toFixed(3) : Q.toExponential(2);
+    document.getElementById('kVal').textContent = K.toExponential(2);
+
+    // Equilibrium annotation — fade in when close
+    var nearEq = (activeXi / eqXi) > 0.92;
+    var eqNote = document.getElementById('eqNote');
+    if (nearEq) {
+      eqNote.classList.add('visible');
+      var cuEq = C0_CU * (1 - eqXi);
+      document.getElementById('eqNoteText').innerHTML =
+        'At equilibrium, [Cu\u00B2\u207A] \u2248 ' + cuEq.toExponential(1) +
+        ' M \u2014 effectively zero, but not mathematically zero. ' +
+        'The battery is \u201Cdead\u201D because Q has caught up to K, not because a reactant has been completely consumed.';
+    } else {
+      eqNote.classList.remove('visible');
+    }
+  }
+
+  function fullUpdate() {
+    var active = hoveredXi !== null ? hoveredXi : xi;
+    updateMarker(active);
+    updateReadouts(active);
+  }
+
+  // Initial draw
+  drawChart();
+  fullUpdate();
+
+  dischargeEl.addEventListener('input', function() {
+    xi = parseFloat(this.value);
+    fullUpdate();
+  });
+
+  tempEl.addEventListener('input', function() {
+    temp = parseInt(this.value);
+    drawChart();
+    fullUpdate();
+  });
+
+  svg.addEventListener('mousemove', function(e) {
+    var rect = svg.getBoundingClientRect();
+    var mouseX = (e.clientX - rect.left) / rect.width * W;
+    var frac = (mouseX - pad.l) / cw;
+    if (frac >= 0 && frac <= 1) {
+      hoveredXi = frac * chartState.eqXi;
+      fullUpdate();
+    }
+  });
+  svg.addEventListener('mouseleave', function() {
+    hoveredXi = null;
+    fullUpdate();
+  });
+
+  animBtn.addEventListener('click', function() {
+    if (animating) return;
+    animating = true;
+    animBtn.textContent = '\u27F3 Discharging\u2026';
+    animBtn.classList.add('running');
+    xi = 0;
+    dischargeEl.value = 0;
+    fullUpdate();
+
+    var eqXi = chartState.eqXi;
+    var start = null;
+    var duration = 6000;
+
+    function step(ts) {
+      if (!start) start = ts;
+      var t = Math.min((ts - start) / duration, 1);
+      var eased = t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t;
+      xi = eqXi * eased;
+      dischargeEl.value = xi;
+      fullUpdate();
+      if (t < 1) {
+        animId = requestAnimationFrame(step);
+      } else {
+        animating = false;
+        animBtn.textContent = '\u25B6 Watch the battery discharge';
+        animBtn.classList.remove('running');
+      }
+    }
+    animId = requestAnimationFrame(step);
+  });
+
+})();
+</script>
+</body>
+</html>
