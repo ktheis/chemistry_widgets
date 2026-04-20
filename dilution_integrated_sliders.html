@@ -1,0 +1,471 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dilution — Interactive Visualization</title>
+<style>
+  :root {
+    --bg: #f8f5ef;
+    --ink: #2a2622;
+    --muted: #6b5d4a;
+    --faint: #8a7a62;
+    --accent: #c66a3a;
+    --accent-dark: #a85528;
+    --accent-light: #d98b5f;
+    --panel: #fdfbf6;
+    --border: #e5ddd0;
+    --border-strong: #c4b8a3;
+    --accent-bg: #fdf2e7;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    min-height: 100vh;
+    background: var(--bg);
+    padding: 24px 16px;
+    font-family: Georgia, "Iowan Old Style", "Palatino Linotype", serif;
+    color: var(--ink);
+  }
+  .mono {
+    font-family: "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
+    font-variant-numeric: tabular-nums;
+  }
+  .container { max-width: 1100px; margin: 0 auto; }
+
+  header { text-align: center; margin-bottom: 16px; }
+  .eyebrow {
+    font-size: 11px;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: var(--faint);
+    margin-bottom: 4px;
+  }
+  h1 {
+    font-size: 34px;
+    font-weight: 400;
+    font-style: italic;
+    margin: 0;
+    letter-spacing: 0.5px;
+  }
+
+  .stage {
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    align-items: center;
+    gap: 16px;
+  }
+  .side { display: flex; flex-direction: column; align-items: center; }
+  .phase-label { font-size: 17px; color: #4a4035; margin-bottom: 6px; }
+  .side-svg {
+    width: 100%;
+    max-width: 320px;
+    user-select: none;
+    -webkit-user-select: none;
+    touch-action: none;
+  }
+  .side-svg svg { width: 100%; height: auto; display: block; }
+  .drag-hit { cursor: ns-resize; }
+  .side-caption {
+    margin-top: 8px;
+    font-size: 14px;
+    color: var(--muted);
+    font-style: italic;
+    text-align: center;
+    min-height: 48px;
+  }
+  .side-caption.readout { font-style: normal; line-height: 1.55; font-size: 15px; }
+  .side-caption .val { font-size: 16px; }
+  .side-caption .c-val { color: var(--accent); }
+
+  .center { display: flex; flex-direction: column; align-items: center; }
+  .formula-box {
+    border: 1.5px solid var(--accent-light);
+    background: var(--accent-bg);
+    border-radius: 4px;
+    padding: 14px 20px;
+    min-width: 260px;
+    text-align: center;
+    transition: all 0.3s ease;
+  }
+  .formula-symbolic { font-size: 20px; font-style: italic; letter-spacing: 0.5px; }
+  .formula-caption { font-size: 11px; color: var(--faint); margin-top: 4px; letter-spacing: 1px; }
+  .formula-live { font-size: 15px; line-height: 1.6; }
+  .equals-sep { color: var(--accent); font-size: 18px; line-height: 0.6; margin: 2px 0; }
+  .sym, .unit { color: var(--faint); }
+  .unit { font-size: 13px; }
+
+  .controls {
+    margin-top: 20px;
+    padding-top: 18px;
+    border-top: 1px dashed #d6cab3;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+  .controls label { font-size: 15px; }
+  .num-input {
+    font-family: "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
+    font-size: 15px;
+    border: 1px solid var(--border-strong);
+    background: #fff;
+    padding: 6px 10px;
+    border-radius: 3px;
+    width: 90px;
+    font-variant-numeric: tabular-nums;
+  }
+  .num-input:focus { outline: none; border-color: var(--accent); }
+  .btn {
+    font-family: Georgia, serif;
+    font-size: 14px;
+    padding: 7px 16px;
+    border-radius: 3px;
+    border: none;
+    cursor: pointer;
+    letter-spacing: 0.3px;
+  }
+  .btn-primary { background: var(--accent); color: #fff8f0; }
+  .btn-primary:hover { background: var(--accent-dark); }
+  .btn-secondary { background: transparent; color: var(--muted); border: 1px solid var(--border-strong); }
+  .btn-secondary:hover { background: #ede4d3; }
+  .hint { font-size: 13px; color: var(--faint); font-style: italic; }
+
+  @media (max-width: 880px) {
+    .stage { grid-template-columns: 1fr; gap: 20px; }
+    .side-svg { max-width: 340px; }
+  }
+</style>
+</head>
+<body>
+<div class="container">
+  <header>
+    <div class="eyebrow">Solution Chemistry</div>
+    <h1>Dilution</h1>
+  </header>
+
+  <div class="stage">
+    <div class="side">
+      <div class="phase-label">before</div>
+      <div class="side-svg" id="side-before"></div>
+      <div class="side-caption" id="caption-before"></div>
+    </div>
+    <div class="center">
+      <div class="formula-box" id="formula-box"></div>
+    </div>
+    <div class="side">
+      <div class="phase-label">after adding solvent</div>
+      <div class="side-svg" id="side-after"></div>
+      <div class="side-caption" id="caption-after"></div>
+    </div>
+  </div>
+
+  <div class="controls" id="c1-entry"></div>
+</div>
+
+<script>
+(function() {
+  const MIN_V = 50;
+  const MAX_V = 500;
+  const V_GAP = 10;
+
+  const state = {
+    c1: null,
+    c1Input: "5",
+    v1: 150,
+    v2: 450,
+  };
+
+  function handleV1(newV1) {
+    state.v1 = Math.max(MIN_V, Math.min(Math.round(newV1), MAX_V - V_GAP));
+    if (state.v2 < state.v1 + V_GAP) state.v2 = state.v1 + V_GAP;
+    render();
+  }
+  function handleV2(newV2) {
+    state.v2 = Math.min(MAX_V, Math.max(state.v1 + V_GAP, Math.round(newV2)));
+    render();
+  }
+  function handleSetC1() {
+    const val = parseFloat(state.c1Input);
+    if (!isNaN(val) && val > 0) { state.c1 = val; render(); }
+  }
+  function handleReset() {
+    state.c1 = null; state.c1Input = "5"; state.v1 = 150; state.v2 = 450;
+    render();
+  }
+
+  function makeRand(seed) {
+    let s = (seed * 2654435761) >>> 0;
+    return function() {
+      s = (s + 0x6d2b79f5) >>> 0;
+      let t = s;
+      t = Math.imul(t ^ (t >>> 15), t | 1);
+      t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+
+  function generateInsetLayout(seed) {
+    const rand = makeRand(seed);
+    const positions = [];
+    const TOTAL_COUNT = 115;
+    const MAX_TRIANGLES = 20;
+    const MIN_DIST = 5.3;
+    const MAX_R = 42;
+    let attempts = 0;
+    while (positions.length < TOTAL_COUNT && attempts < 8000) {
+      const angle = rand() * 2 * Math.PI;
+      const r = Math.sqrt(rand()) * MAX_R;
+      const x = 50 + r * Math.cos(angle);
+      const y = 50 + r * Math.sin(angle);
+      let ok = true;
+      for (const p of positions) {
+        const dx = p.x - x, dy = p.y - y;
+        if (dx * dx + dy * dy < MIN_DIST * MIN_DIST) { ok = false; break; }
+      }
+      if (ok) positions.push({ x, y });
+      attempts++;
+    }
+    const remaining = positions.map((_, i) => i);
+    const soluteOrder = [];
+    const firstI = Math.floor(rand() * remaining.length);
+    soluteOrder.push(remaining[firstI]);
+    remaining.splice(firstI, 1);
+    while (soluteOrder.length < MAX_TRIANGLES && remaining.length > 0) {
+      let bestRI = -1, bestMinDistSq = -1;
+      for (let ri = 0; ri < remaining.length; ri++) {
+        const p = positions[remaining[ri]];
+        let minDistSq = Infinity;
+        for (const si of soluteOrder) {
+          const sp = positions[si];
+          const dx = p.x - sp.x, dy = p.y - sp.y;
+          const dsq = dx * dx + dy * dy;
+          if (dsq < minDistSq) minDistSq = dsq;
+        }
+        if (minDistSq > bestMinDistSq) { bestMinDistSq = minDistSq; bestRI = ri; }
+      }
+      soluteOrder.push(remaining[bestRI]);
+      remaining.splice(bestRI, 1);
+    }
+    return { positions, soluteOrder };
+  }
+  const insetBefore = generateInsetLayout(11);
+  const insetAfter  = generateInsetLayout(29);
+
+  function buildInsetGroup(cx, cy, layout, triangleCount, seed) {
+    const ox = cx - 50, oy = cy - 50;
+    const triangleSet = new Set(layout.soluteOrder.slice(0, triangleCount));
+
+    let s = '<g transform="translate(' + ox + ',' + oy + ')">';
+    s += '<circle cx="50" cy="50" r="47" fill="#fdfbf6" stroke="#2a2622" stroke-width="0.8"/>';
+    s += '<g clip-path="url(#clip-' + seed + ')">';
+    for (let i = 0; i < layout.positions.length; i++) {
+      if (triangleSet.has(i)) continue;
+      const p = layout.positions[i];
+      s += '<circle cx="' + p.x + '" cy="' + p.y + '" r="2.3" fill="none" stroke="#8a7a62" stroke-width="0.45"/>';
+    }
+    for (let i = 0; i < layout.positions.length; i++) {
+      if (!triangleSet.has(i)) continue;
+      const p = layout.positions[i];
+      s += '<polygon points="' + p.x + ',' + (p.y - 2.6) + ' ' + (p.x - 2.3) + ',' + (p.y + 1.8) + ' ' + (p.x + 2.3) + ',' + (p.y + 1.8) + '" fill="#c8341f"/>';
+    }
+    s += '</g></g>';
+    return s;
+  }
+
+  function buildSide(side, volume, colorRatio, showInset, layout, triangleCount, seed) {
+    const W = 300, H = 400;
+    const CYL_H = 360, CYL_W = 74, CYL_Y = 18, BASE_H = 9;
+    const CYL_X = (side === 'before') ? 24 : (W - 24 - CYL_W);
+    const insetR = 47;
+    const cylRight = CYL_X + CYL_W;
+    const cylLeft  = CYL_X;
+    // Place inset circle with edge ~20 units from the cylinder on the inset side,
+    // clamped to viewbox so the circle never hits the edge.
+    const insetCx = (side === 'before')
+      ? Math.min(W - insetR - 8, cylRight + 22 + insetR)
+      : Math.max(insetR + 8, cylLeft - 22 - insetR);
+    const insetCy = CYL_Y + CYL_H / 2;
+
+    const liquidHeight = (volume / 500) * CYL_H;
+    const liquidY = CYL_Y + CYL_H - liquidHeight;
+    const alpha = 0.25 + 0.6 * colorRatio;
+    const fill = 'rgba(217, 128, 80, ' + alpha + ')';
+    const meniscusColor = 'rgba(180, 85, 40, ' + (0.4 + 0.5 * colorRatio) + ')';
+
+    const majorTicks = [50, 100, 150, 200, 250, 300, 350, 400, 450, 500];
+    const minorTicks = [];
+    for (let mL = 10; mL <= 500; mL += 10) if (mL % 50 !== 0) minorTicks.push(mL);
+
+    let s = '<svg viewBox="0 0 ' + W + ' ' + H + '" xmlns="http://www.w3.org/2000/svg">';
+    s += '<defs><clipPath id="clip-' + seed + '"><circle cx="50" cy="50" r="47"/></clipPath></defs>';
+
+    // Liquid + meniscus line
+    s += '<rect x="' + (CYL_X + 1.5) + '" y="' + liquidY + '" width="' + (CYL_W - 3) + '" height="' + liquidHeight + '" fill="' + fill + '"/>';
+    s += '<line x1="' + (CYL_X + 1.5) + '" y1="' + liquidY + '" x2="' + (cylRight - 1.5) + '" y2="' + liquidY + '" stroke="' + meniscusColor + '" stroke-width="1.2"/>';
+
+    // Ticks
+    for (const mL of minorTicks) {
+      const y = CYL_Y + CYL_H - (mL / 500) * CYL_H;
+      s += '<line x1="' + CYL_X + '" y1="' + y + '" x2="' + (CYL_X + 4) + '" y2="' + y + '" stroke="#6b5d4a" stroke-width="0.4" opacity="0.55"/>';
+    }
+    for (const mL of majorTicks) {
+      const y = CYL_Y + CYL_H - (mL / 500) * CYL_H;
+      s += '<line x1="' + CYL_X + '" y1="' + y + '" x2="' + (CYL_X + 10) + '" y2="' + y + '" stroke="#2a2622" stroke-width="0.7"/>';
+      s += '<text x="' + (CYL_X - 3) + '" y="' + (y + 3) + '" font-size="8" text-anchor="end" fill="#3a332a" style="font-family: monospace;">' + mL + '</text>';
+    }
+    s += '<text x="' + (CYL_X - 3) + '" y="' + (CYL_Y + 6) + '" font-size="7" text-anchor="end" fill="#6b5d4a" style="font-family: monospace; font-style: italic;">ml</text>';
+
+    // Cylinder outline + rim + base
+    s += '<rect x="' + CYL_X + '" y="' + CYL_Y + '" width="' + CYL_W + '" height="' + CYL_H + '" fill="none" stroke="#2a2622" stroke-width="1.8"/>';
+    s += '<line x1="' + (CYL_X - 4) + '" y1="' + CYL_Y + '" x2="' + (cylRight + 4) + '" y2="' + CYL_Y + '" stroke="#2a2622" stroke-width="2.2" stroke-linecap="round"/>';
+    s += '<rect x="' + (CYL_X - 12) + '" y="' + (CYL_Y + CYL_H) + '" width="' + (CYL_W + 24) + '" height="' + BASE_H + '" fill="#2a2622" rx="1.5"/>';
+
+    // Zoom lines + inset (only in pedagogical mode)
+    if (showInset) {
+      const insetSide = (side === 'before') ? 'right' : 'left';
+      const cylInsetEdge = (insetSide === 'right') ? cylRight : cylLeft;
+      const ang = 55 * Math.PI / 180;
+      let tx1, ty1, tx2, ty2;
+      if (insetSide === 'right') {
+        tx1 = insetCx - insetR * Math.cos(ang);
+        ty1 = insetCy - insetR * Math.sin(ang);
+        tx2 = insetCx - insetR * Math.cos(ang);
+        ty2 = insetCy + insetR * Math.sin(ang);
+      } else {
+        tx1 = insetCx + insetR * Math.cos(ang);
+        ty1 = insetCy - insetR * Math.sin(ang);
+        tx2 = insetCx + insetR * Math.cos(ang);
+        ty2 = insetCy + insetR * Math.sin(ang);
+      }
+      s += '<line x1="' + cylInsetEdge + '" y1="' + liquidY + '" x2="' + tx1 + '" y2="' + ty1 + '" stroke="#3a332a" stroke-width="0.5" opacity="0.45"/>';
+      s += '<line x1="' + cylInsetEdge + '" y1="' + (CYL_Y + CYL_H) + '" x2="' + tx2 + '" y2="' + ty2 + '" stroke="#3a332a" stroke-width="0.5" opacity="0.45"/>';
+      s += buildInsetGroup(insetCx, insetCy, layout, triangleCount, seed);
+    }
+
+    // Meniscus handle (on side opposite the inset)
+    const handleSide = (side === 'before') ? 'left' : 'right';
+    if (handleSide === 'left') {
+      s += '<line x1="' + cylLeft + '" y1="' + liquidY + '" x2="' + (cylLeft - 4) + '" y2="' + liquidY + '" stroke="#c66a3a" stroke-width="1.5"/>';
+      s += '<rect x="' + (cylLeft - 20) + '" y="' + (liquidY - 5.5) + '" width="16" height="11" rx="2.5" fill="#fff" stroke="#c66a3a" stroke-width="1.2"/>';
+      s += '<polyline points="' + (cylLeft - 16) + ',' + (liquidY - 1.5) + ' ' + (cylLeft - 12) + ',' + (liquidY - 3.5) + ' ' + (cylLeft - 8) + ',' + (liquidY - 1.5) + '" stroke="#c66a3a" stroke-width="1" fill="none" stroke-linecap="round" stroke-linejoin="round"/>';
+      s += '<polyline points="' + (cylLeft - 16) + ',' + (liquidY + 1.5) + ' ' + (cylLeft - 12) + ',' + (liquidY + 3.5) + ' ' + (cylLeft - 8) + ',' + (liquidY + 1.5) + '" stroke="#c66a3a" stroke-width="1" fill="none" stroke-linecap="round" stroke-linejoin="round"/>';
+    } else {
+      s += '<line x1="' + cylRight + '" y1="' + liquidY + '" x2="' + (cylRight + 4) + '" y2="' + liquidY + '" stroke="#c66a3a" stroke-width="1.5"/>';
+      s += '<rect x="' + (cylRight + 4) + '" y="' + (liquidY - 5.5) + '" width="16" height="11" rx="2.5" fill="#fff" stroke="#c66a3a" stroke-width="1.2"/>';
+      s += '<polyline points="' + (cylRight + 8) + ',' + (liquidY - 1.5) + ' ' + (cylRight + 12) + ',' + (liquidY - 3.5) + ' ' + (cylRight + 16) + ',' + (liquidY - 1.5) + '" stroke="#c66a3a" stroke-width="1" fill="none" stroke-linecap="round" stroke-linejoin="round"/>';
+      s += '<polyline points="' + (cylRight + 8) + ',' + (liquidY + 1.5) + ' ' + (cylRight + 12) + ',' + (liquidY + 3.5) + ' ' + (cylRight + 16) + ',' + (liquidY + 1.5) + '" stroke="#c66a3a" stroke-width="1" fill="none" stroke-linecap="round" stroke-linejoin="round"/>';
+    }
+
+    // Transparent drag hit rectangle (cylinder + handle area)
+    const whichV = (side === 'before') ? 'v1' : 'v2';
+    let hitX, hitW;
+    if (handleSide === 'left') { hitX = cylLeft - 22; hitW = CYL_W + 22; }
+    else                        { hitX = cylLeft;      hitW = CYL_W + 22; }
+    s += '<rect class="drag-hit" data-side="' + whichV + '" x="' + hitX + '" y="' + CYL_Y + '" width="' + hitW + '" height="' + CYL_H + '" fill="rgba(0,0,0,0)"/>';
+
+    s += '</svg>';
+    return s;
+  }
+
+  function fmt(n, d) { return parseFloat(n.toFixed(d)).toString(); }
+
+  function render() {
+    const interactive = state.c1 !== null;
+    const c2 = interactive ? (state.c1 * state.v1) / state.v2 : null;
+    const n1 = interactive ? state.c1 * state.v1 : null;  // M × mL = mmol
+    const n2 = interactive ? c2 * state.v2 : null;
+
+    const beforeCount = 20;
+    const afterCount  = Math.max(1, Math.round(beforeCount * (state.v1 / state.v2)));
+    document.getElementById('side-before').innerHTML =
+      buildSide('before', state.v1, 1, !interactive, insetBefore, beforeCount, 11);
+    document.getElementById('side-after').innerHTML =
+      buildSide('after',  state.v2, state.v1 / state.v2, !interactive, insetAfter, afterCount, 29);
+
+    const fb = document.getElementById('formula-box');
+    if (!interactive) {
+      fb.innerHTML =
+        '<div class="formula-symbolic">c₁·V₁ = c₂·V₂</div>' +
+        '<div class="formula-caption">moles are conserved</div>';
+    } else {
+      fb.innerHTML =
+        '<div class="mono formula-live">' +
+          '<div><span class="sym">n₁ =</span> ' + fmt(state.c1, 3) + ' × ' + state.v1 + ' <span class="sym">=</span> <strong>' + fmt(n1, 2) + '</strong> <span class="sym">mmol</span></div>' +
+          '<div class="equals-sep">‖</div>' +
+          '<div><span class="sym">n₂ =</span> ' + fmt(c2, 4) + ' × ' + state.v2 + ' <span class="sym">=</span> <strong>' + fmt(n2, 2) + '</strong> <span class="sym">mmol</span></div>' +
+        '</div>';
+    }
+
+    const cb = document.getElementById('caption-before');
+    const ca = document.getElementById('caption-after');
+    if (!interactive) {
+      cb.className = 'side-caption';
+      ca.className = 'side-caption';
+      cb.innerHTML = 'higher concentration c₁';
+      ca.innerHTML = 'lower concentration c₂';
+    } else {
+      cb.className = 'side-caption readout mono';
+      ca.className = 'side-caption readout mono';
+      cb.innerHTML =
+        '<div><span class="sym">V₁ =</span> <span class="val">' + state.v1 + '</span> <span class="unit">mL</span></div>' +
+        '<div><span class="sym">c₁ =</span> <span class="val c-val">' + fmt(state.c1, 3) + '</span> <span class="unit">M</span></div>';
+      ca.innerHTML =
+        '<div><span class="sym">V₂ =</span> <span class="val">' + state.v2 + '</span> <span class="unit">mL</span></div>' +
+        '<div><span class="sym">c₂ =</span> <span class="val c-val">' + fmt(c2, 4) + '</span> <span class="unit">M</span></div>';
+    }
+
+    const ce = document.getElementById('c1-entry');
+    if (!interactive) {
+      ce.innerHTML =
+        '<label>Stock concentration <span style="font-style:italic;">c₁</span>:</label>' +
+        '<input class="num-input" type="number" step="any" id="c1-input" value="' + state.c1Input + '" placeholder="5">' +
+        '<span style="font-size:14px;color:var(--muted);">M</span>' +
+        '<button class="btn btn-primary" id="set-btn">Set</button>' +
+        '<span class="hint">Drag a cylinder to change its volume.</span>';
+      const input = document.getElementById('c1-input');
+      input.addEventListener('input', function(e) { state.c1Input = e.target.value; });
+      input.addEventListener('keydown', function(e) { if (e.key === 'Enter') handleSetC1(); });
+      document.getElementById('set-btn').addEventListener('click', handleSetC1);
+    } else {
+      ce.innerHTML =
+        '<span style="font-size:14px;color:var(--muted);">Stock c₁ = <span class="mono">' + fmt(state.c1, 3) + '</span> M</span>' +
+        '<button class="btn btn-secondary" id="reset-btn">Reset</button>';
+      document.getElementById('reset-btn').addEventListener('click', handleReset);
+    }
+  }
+
+  // Pointer drag on cylinders (event delegation so handlers survive re-renders)
+  let activeDragSide = null;
+  function updateFromPointer(clientY) {
+    if (!activeDragSide) return;
+    const hit = document.querySelector('.drag-hit[data-side="' + activeDragSide + '"]');
+    if (!hit) return;
+    const rect = hit.getBoundingClientRect();
+    const frac = (clientY - rect.top) / rect.height;
+    const volume = 500 * (1 - frac);
+    if (activeDragSide === 'v1') handleV1(volume);
+    else                          handleV2(volume);
+  }
+  document.addEventListener('pointerdown', function(e) {
+    const hit = e.target.closest ? e.target.closest('.drag-hit') : null;
+    if (!hit) return;
+    activeDragSide = hit.dataset.side;
+    try { hit.setPointerCapture(e.pointerId); } catch (_) {}
+    updateFromPointer(e.clientY);
+    e.preventDefault();
+  });
+  document.addEventListener('pointermove', function(e) {
+    if (activeDragSide === null) return;
+    updateFromPointer(e.clientY);
+  });
+  function endDrag() { activeDragSide = null; }
+  document.addEventListener('pointerup', endDrag);
+  document.addEventListener('pointercancel', endDrag);
+
+  render();
+})();
+</script>
+</body>
+</html>
