@@ -1,0 +1,672 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Thermochemistry</title>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.development.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.development.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
+
+<style>
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:ital,wght@0,300;0,400;0,500;0,600;1,400&display=swap');
+
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:oklch(0.97 0.005 55);
+  --bg2:#ffffff;
+  --text:oklch(0.15 0.01 240);
+  --text2:oklch(0.48 0.01 240);
+  --border:oklch(0.89 0.005 240);
+  --accent:oklch(0.52 0.16 28);
+  --font:'IBM Plex Sans',sans-serif;
+  --mono:'IBM Plex Mono',monospace;
+}
+body{font-family:var(--font);background:var(--bg);color:var(--text);height:100vh;overflow:hidden;display:flex;flex-direction:column}
+
+.hdr{background:var(--text);color:#fff;padding:0 20px;display:flex;align-items:stretch;height:50px;flex-shrink:0}
+.hdr-title{font-size:14px;font-weight:500;letter-spacing:.04em;display:flex;align-items:center;padding-right:28px;border-right:1px solid rgba(255,255,255,.13);margin-right:4px;white-space:nowrap}
+.hdr-title span{font-family:var(--mono);font-size:11px;opacity:.4;margin-right:8px}
+.tab-btn{background:none;border:none;border-bottom:2px solid transparent;color:rgba(255,255,255,.5);cursor:pointer;padding:0 18px;font-family:var(--font);font-size:12.5px;font-weight:400;transition:color .15s,border-color .15s;display:flex;align-items:center;gap:6px}
+.tab-btn .tn{font-family:var(--mono);font-size:10px;opacity:.45}
+.tab-btn.active{color:#fff;border-bottom-color:var(--accent)}
+.tab-btn:hover:not(.active){color:rgba(255,255,255,.8)}
+
+.main{display:flex;flex:1;overflow:hidden}
+.sidebar{width:248px;flex-shrink:0;background:var(--bg2);border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden}
+.sb-head{padding:12px 14px 10px;font-size:10px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--text2);border-bottom:1px solid var(--border)}
+.rxn-list{flex:1;overflow-y:auto;padding:6px}
+.rxn-item{padding:9px 11px;border-radius:5px;cursor:pointer;transition:background .1s;margin-bottom:2px}
+.rxn-item:hover:not(.sel){background:var(--bg)}
+.rxn-item.sel{background:oklch(0.95 0.02 28)}
+.rxn-name{font-size:12px;font-weight:500;margin-bottom:3px}
+.rxn-eq{font-family:var(--mono);font-size:10.5px;color:var(--text2);line-height:1.4}
+.sb-foot{border-top:1px solid var(--border);padding:11px 14px;font-size:10.5px;color:var(--text2);line-height:1.65}
+.sb-foot b{color:var(--text);font-weight:500}
+
+.content{flex:1;display:flex;flex-direction:column;overflow:hidden;min-width:0;min-height:0}
+.diagram-wrap{flex:1;padding:16px 20px 8px;display:flex;align-items:center;justify-content:center;min-height:0}
+
+.calc-panel{border-top:1px solid var(--border);padding:12px 20px;background:var(--bg2);display:flex;gap:24px;flex-shrink:0;overflow-x:auto}
+.cs{flex:1;min-width:140px}
+.cs-title{font-size:9.5px;font-weight:600;letter-spacing:.09em;text-transform:uppercase;color:var(--text2);margin-bottom:7px}
+.cr{display:flex;justify-content:space-between;align-items:baseline;font-size:11.5px;color:var(--text2);margin-bottom:2px;gap:10px}
+.cr-lbl{font-family:var(--mono);white-space:nowrap}
+.cr-val{font-family:var(--mono);font-weight:500;color:var(--text);white-space:nowrap}
+.cr-total{margin-top:5px;padding-top:5px;border-top:1px solid var(--border);font-weight:600}
+.result-box{flex:0 0 auto;min-width:130px;display:flex;flex-direction:column;gap:4px}
+.result-eq{font-size:10.5px;color:var(--text2);line-height:1.5;margin-bottom:2px}
+.result-val{font-family:var(--mono);font-size:22px;font-weight:500}
+.pos{color:oklch(0.50 0.17 28)}
+.neg{color:oklch(0.42 0.16 248)}
+.result-kind{font-size:10.5px;color:var(--text2);margin-top:2px}
+
+.temp-ctrl{border-top:1px solid var(--border);padding:10px 20px;background:var(--bg2);display:flex;align-items:center;gap:14px;flex-shrink:0}
+.temp-lbl{font-size:11.5px;color:var(--text2);white-space:nowrap}
+.temp-val{font-family:var(--mono);font-size:13px;font-weight:500;min-width:58px}
+input[type=range]{flex:1;accent-color:var(--accent);cursor:pointer}
+
+.tweaks{position:fixed;bottom:18px;right:18px;background:#fff;border:1px solid var(--border);border-radius:8px;padding:13px 15px;width:190px;box-shadow:0 4px 18px rgba(0,0,0,.09);z-index:100;display:none}
+.tweaks.vis{display:block}
+.tw-title{font-size:10px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--text2);margin-bottom:10px}
+.tw-row{display:flex;justify-content:space-between;align-items:center;font-size:12px;color:var(--text);margin-bottom:8px}
+.toggle{width:30px;height:17px;border-radius:9px;background:var(--border);cursor:pointer;transition:background .2s;position:relative;flex-shrink:0}
+.toggle.on{background:var(--accent)}
+.toggle::after{content:'';position:absolute;width:13px;height:13px;background:#fff;border-radius:50%;top:2px;left:2px;transition:left .2s}
+.toggle.on::after{left:15px}
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<script type="text/babel">
+const { useState, useEffect, useMemo } = React;
+
+// ─── DATA ────────────────────────────────────────────────────────────────────
+
+const BE = {
+  'H–H':436,'O=O':498,'N≡N':945,
+  'C–H':413,'C–C':347,'C=O':799,'C≡O':1072,
+  'O–H':463,'N–H':391,
+  'H–Cl':432,'Cl–Cl':243,
+  'H–F':565,'F–F':159,
+  'N=O':607,'S=O':523,
+};
+
+const CMP = {
+  H2:   {lbl:'H₂',     el:true,  hf:0,      Cp:28.8, bonds:[['H–H',1]]},
+  O2:   {lbl:'O₂',     el:true,  hf:0,      Cp:29.4, bonds:[['O=O',1]]},
+  N2:   {lbl:'N₂',     el:true,  hf:0,      Cp:29.1, bonds:[['N≡N',1]]},
+  Cl2:  {lbl:'Cl₂',    el:true,  hf:0,      Cp:33.9, bonds:[['Cl–Cl',1]]},
+  F2:   {lbl:'F₂',     el:true,  hf:0,      Cp:31.3, bonds:[['F–F',1]]},
+  H2Og: {lbl:'H₂O(g)', el:false, hf:-241.8, Cp:33.6, bonds:[['O–H',2]]},
+  CO2:  {lbl:'CO₂',    el:false, hf:-393.5, Cp:37.1, bonds:[['C=O',2]]},
+  CO:   {lbl:'CO',     el:false, hf:-110.5, Cp:29.1, bonds:[['C≡O',1]]},
+  CH4:  {lbl:'CH₄',    el:false, hf:-74.8,  Cp:35.7, bonds:[['C–H',4]]},
+  NH3:  {lbl:'NH₃',    el:false, hf:-46.1,  Cp:35.1, bonds:[['N–H',3]]},
+  HCl:  {lbl:'HCl',    el:false, hf:-92.3,  Cp:29.1, bonds:[['H–Cl',1]]},
+  HF:   {lbl:'HF',     el:false, hf:-273.2, Cp:29.1, bonds:[['H–F',1]]},
+  SO2:  {lbl:'SO₂',    el:false, hf:-296.8, Cp:39.9, bonds:[['S=O',2]]},
+  SO3:  {lbl:'SO₃',    el:false, hf:-395.7, Cp:50.7, bonds:[['S=O',3]]},
+  NO:   {lbl:'NO',     el:false, hf:90.3,   Cp:29.9, bonds:[['N=O',1]]},
+  NO2:  {lbl:'NO₂',    el:false, hf:33.2,   Cp:37.2, bonds:[['N=O',2]]},
+};
+
+const RXN = [
+  {id:'h2c', name:'Combustion of H₂',  eq:'2H₂ + O₂ → 2H₂O(g)',         r:[{id:'H2',n:2},{id:'O2',n:1}],  p:[{id:'H2Og',n:2}]},
+  {id:'ch4', name:'Combustion of CH₄', eq:'CH₄ + 2O₂ → CO₂ + 2H₂O(g)', r:[{id:'CH4',n:1},{id:'O2',n:2}], p:[{id:'CO2',n:1},{id:'H2Og',n:2}]},
+  {id:'hab', name:'Haber Process',      eq:'N₂ + 3H₂ → 2NH₃',            r:[{id:'N2',n:1},{id:'H2',n:3}],  p:[{id:'NH3',n:2}]},
+  {id:'hcl', name:'Formation of HCl',  eq:'H₂ + Cl₂ → 2HCl',            r:[{id:'H2',n:1},{id:'Cl2',n:1}], p:[{id:'HCl',n:2}]},
+  {id:'hf',  name:'Formation of HF',   eq:'H₂ + F₂ → 2HF',              r:[{id:'H2',n:1},{id:'F2',n:1}],  p:[{id:'HF',n:2}]},
+  {id:'so3', name:'Oxidation of SO₂',  eq:'2SO₂ + O₂ → 2SO₃',           r:[{id:'SO2',n:2},{id:'O2',n:1}], p:[{id:'SO3',n:2}]},
+  {id:'no',  name:'Formation of NO',   eq:'N₂ + O₂ → 2NO',              r:[{id:'N2',n:1},{id:'O2',n:1}],  p:[{id:'NO',n:2}]},
+];
+
+// ─── CALCS ───────────────────────────────────────────────────────────────────
+
+const fmt    = v => (v >= 0 ? '+' : '') + v.toFixed(1);
+const fmtInt = v => (v >= 0 ? '+' : '') + Math.round(v);
+const beOf   = id => CMP[id].bonds.reduce((s,[b,n]) => s + n*(BE[b]||0), 0);
+
+function formData(rx) {
+  const rH = rx.r.reduce((s,r) => s + r.n*CMP[r.id].hf, 0);
+  const pH = rx.p.reduce((s,p) => s + p.n*CMP[p.id].hf, 0);
+  return { rL:rH, mL:0, pL:pH, dH:pH-rH };
+}
+
+function bondData(rx) {
+  const rBE = rx.r.reduce((s,r) => s + r.n*beOf(r.id), 0);
+  const pBE = rx.p.reduce((s,p) => s + p.n*beOf(p.id), 0);
+  return { rL:-rBE, mL:0, pL:-pBE, dH:rBE-pBE, rBE, pBE };
+}
+
+function tempData(rx, T) {
+  const dT    = T - 298;
+  const rH    = rx.r.reduce((s,r) => s + r.n*(CMP[r.id].hf + CMP[r.id].Cp*dT/1000), 0);
+  const pH    = rx.p.reduce((s,p) => s + p.n*(CMP[p.id].hf + CMP[p.id].Cp*dT/1000), 0);
+  const dH298 = formData(rx).dH;
+  const CpR   = rx.r.reduce((s,r) => s + r.n*CMP[r.id].Cp, 0);
+  const CpP   = rx.p.reduce((s,p) => s + p.n*CMP[p.id].Cp, 0);
+  return { rL:rH, mL:0, pL:pH, dH:pH-rH, dH298, CpR, CpP, dCp:CpP-CpR };
+}
+
+// ─── SVG HELPERS ─────────────────────────────────────────────────────────────
+
+function mkTicks(lo, hi) {
+  const range = hi - lo;
+  const step  = range > 1500 ? 500 : range > 600 ? 200 : range > 250 ? 100 : range > 120 ? 50 : 25;
+  const ticks = [];
+  for (let v = Math.ceil(lo/step)*step; v <= hi; v += step) ticks.push(v);
+  return ticks;
+}
+
+// ─── ENERGY DIAGRAM ──────────────────────────────────────────────────────────
+
+function EnergyDiagram({ tab, rx, T, showSteps }) {
+  const W=660, H=370;
+  const ml=74, mr=64, mt=36, mb=44;
+  const pw=W-ml-mr, ph=H-mt-mb;
+
+  // Current enthalpy data — updates with T for tab 2
+  const d = useMemo(() => {
+    if (tab === 0) return formData(rx);
+    if (tab === 1) return bondData(rx);
+    return tempData(rx, T);
+  }, [tab, rx, T]);
+
+  // Per-molecule level for display at current T
+  const getSpecLevel = (id) => {
+    if (tab === 1) return -beOf(id);
+    if (tab === 2) return CMP[id].hf + CMP[id].Cp * (T - 298) / 1000;
+    return CMP[id].hf;
+  };
+
+  const rSpec = rx.r.map(r => ({ ...r, lbl: CMP[r.id].lbl, level: getSpecLevel(r.id) }));
+  const pSpec = rx.p.map(p => ({ ...p, lbl: CMP[p.id].lbl, level: getSpecLevel(p.id) }));
+
+  // ── Y SCALE ─────────────────────────────────────────────────────────────
+  // Tab 2: computed once over the full T range [100 K, 1500 K] so the axis
+  // stays frozen while the slider moves.  T is not in the dep array.
+  // Tabs 0/1: computed from static data, also stable.
+  const { yMin, yMax } = useMemo(() => {
+    // Full-stack extent of a species entry: n × per-molecule level at temperature t
+    const stackAt = (id, n, t) => {
+      if (tab === 1) return n * -beOf(id);
+      if (tab === 2) return n * (CMP[id].hf + CMP[id].Cp * (t - 298) / 1000);
+      return n * CMP[id].hf;
+    };
+
+    let extremes;
+    if (tab === 2) {
+      const T_LO = 100, T_HI = 1500;
+      const dLo  = tempData(rx, T_LO);
+      const dHi  = tempData(rx, T_HI);
+      extremes = [
+        dLo.rL, dLo.pL, dHi.rL, dHi.pL, 0,
+        ...rx.r.flatMap(r => [stackAt(r.id, r.n, T_LO), stackAt(r.id, r.n, T_HI)]),
+        ...rx.p.flatMap(p => [stackAt(p.id, p.n, T_LO), stackAt(p.id, p.n, T_HI)]),
+      ];
+    } else {
+      const dCur = tab === 0 ? formData(rx) : bondData(rx);
+      extremes = [
+        dCur.rL, 0, dCur.pL,
+        ...rx.r.map(r => stackAt(r.id, r.n, 298)),
+        ...rx.p.map(p => stackAt(p.id, p.n, 298)),
+      ];
+    }
+
+    const rawMin = Math.min(...extremes);
+    const rawMax = Math.max(...extremes);
+    const span   = Math.max(rawMax - rawMin, 80);
+    return { yMin: rawMin - span * 0.32, yMax: rawMax + span * 0.28 };
+  }, [tab, rx]); // ← T intentionally absent: axis fixed for tab 2
+
+  const toY = e => mt + ph * (1 - (e - yMin) / (yMax - yMin));
+  const toX = f => ml + f * pw;
+  const ticks = mkTicks(yMin, yMax);
+
+  const rx1=toX(.03), rx2=toX(.36);
+  const mx1=toX(.42), mx2=toX(.58);
+  const px1=toX(.64), px2=toX(.97);
+
+  const yR=toY(d.rL), yM=toY(d.mL), yP=toY(d.pL), y0=toY(0);
+
+  const mLbl = tab === 1 ? 'gaseous atoms' : 'elements (std. state)';
+
+  const cR='oklch(0.52 0.16 28)';
+  const cM='oklch(0.42 0.13 155)';
+  const cP='oklch(0.44 0.16 248)';
+  const cD='oklch(0.42 0.16 308)';
+  const cG='oklch(0.72 0.01 240)';
+
+  const RPAL=['oklch(0.52 0.17 28)','oklch(0.50 0.17 52)','oklch(0.48 0.16 8)'];
+  const PPAL=['oklch(0.44 0.17 248)','oklch(0.44 0.16 272)','oklch(0.44 0.16 222)'];
+
+  // ── SPECIES COLUMNS ──────────────────────────────────────────────────────
+  // Stoichiometry n is shown as n stacked rectangles, each the height of one
+  // molecule's contribution.  The bottom of the full stack lands on the Σ
+  // level line.  Species share the column width equally.
+  const renderSpecies = (specs, colX1, colX2, palette) => {
+    const nSpec = specs.length;
+    const hGap  = 4;
+    const specW = (colX2 - colX1 - hGap * (nSpec - 1)) / Math.max(nSpec, 1);
+
+    return specs.map((sp, i) => {
+      const x     = colX1 + i * (specW + hGap);
+      const cx    = x + specW / 2;
+      const color = palette[i % palette.length];
+      const lev   = sp.level; // per-molecule enthalpy at current state
+
+      // n stacked layers; layer k spans from k·lev to (k+1)·lev
+      const layers = Array.from({ length: Math.max(sp.n, 1) }, (_, k) => {
+        const yLo  = toY(k * lev);
+        const yHi  = toY((k + 1) * lev);
+        const rTop = Math.min(yLo, yHi);
+        const rH   = Math.max(Math.abs(yLo - yHi), 0.5);
+        const eLbl = tab === 1
+          ? `${Math.round(-lev)} kJ/mol`
+          : `${lev >= 0 ? '+' : ''}${lev.toFixed(1)} kJ/mol`;
+        return (
+          <g key={k}>
+            <rect x={x} y={rTop} width={specW} height={rH}
+                  fill={color} fillOpacity={0.10 + k * 0.07}
+                  stroke={color} strokeWidth="1.5" rx="2"/>
+            {rH > 34 && specW > 22 && (
+              <text x={cx} y={(yLo + yHi) / 2 + 4} textAnchor="middle"
+                    fontSize="10" fontFamily="IBM Plex Mono,monospace" fill={color}>
+                {eLbl}
+              </text>
+            )}
+          </g>
+        );
+      });
+
+      // Formula label above the visual top of the whole stack
+      const stackTopY = toY(sp.n * lev);
+      const labelY    = Math.min(toY(0), stackTopY) - 6;
+
+      return (
+        <g key={sp.id + i}>
+          {specW > 14 && (
+            <text x={cx} y={labelY} textAnchor="middle"
+                  fontSize="11" fontFamily="IBM Plex Mono,monospace"
+                  fill={color} fontWeight="500">
+              {sp.lbl}
+            </text>
+          )}
+          {layers}
+        </g>
+      );
+    });
+  };
+
+  const s1Lbl = tab === 1 ? `+${Math.round(d.rBE)} kJ/mol` : fmtInt(-d.rL) + ' kJ/mol';
+  const s2Lbl = tab === 1 ? `−${Math.round(d.pBE)} kJ/mol` : fmtInt(d.pL)  + ' kJ/mol';
+
+  const ax1=rx2, ay1=yR, ax2=mx1, ay2=yM;
+  const bx1=mx2, by1=yM, bx2=px1, by2=yP;
+
+  function perpLabel(x1,y1,x2,y2,dist) {
+    const dx=x2-x1, dy=y2-y1, len=Math.sqrt(dx*dx+dy*dy)||1;
+    return { x:(x1+x2)/2+(-dy/len)*dist, y:(y1+y2)/2+(dx/len)*dist };
+  }
+  const s1pos = perpLabel(ax1,ay1,ax2,ay2,-18);
+  const s2pos = perpLabel(bx1,by1,bx2,by2,-18);
+
+  const brkX=px2+10, brkCap=10;
+  const showBracket = Math.abs(yR-yP) > 6;
+  const clampY = (y, size=11) => Math.max(mt+size, Math.min(mt+ph-4, y));
+
+  return (
+    <svg viewBox={`0 0 ${W} ${H}`}
+         style={{width:'100%',height:'auto',maxHeight:'calc(100vh - 240px)',display:'block'}}>
+      <defs>
+        <marker id="mR" markerWidth="7" markerHeight="5" refX="6" refY="2.5" orient="auto">
+          <polygon points="0 0,7 2.5,0 5" fill={cR}/></marker>
+        <marker id="mP" markerWidth="7" markerHeight="5" refX="6" refY="2.5" orient="auto">
+          <polygon points="0 0,7 2.5,0 5" fill={cP}/></marker>
+        <marker id="mD" markerWidth="7" markerHeight="5" refX="6" refY="2.5" orient="auto">
+          <polygon points="0 0,7 2.5,0 5" fill={cD}/></marker>
+        <marker id="mDu" markerWidth="7" markerHeight="5" refX="6" refY="2.5" orient="auto-start-reverse">
+          <polygon points="0 0,7 2.5,0 5" fill={cD}/></marker>
+      </defs>
+
+      {ticks.map(v => {
+        const ty     = toY(v);
+        const isZero = v === 0;
+        return (
+          <g key={v}>
+            <line x1={ml-4} y1={ty} x2={ml+pw} y2={ty}
+                  stroke={isZero ? 'oklch(0.55 0.02 240)' : cG}
+                  strokeWidth={isZero ? 1.5 : 0.7}
+                  strokeDasharray={isZero ? '5,3' : undefined}
+                  opacity={isZero ? 1 : 0.8}/>
+            <text x={ml-8} y={ty+3.5} textAnchor="end" fontSize="10"
+                  fontFamily="IBM Plex Mono,monospace"
+                  fill={isZero ? 'oklch(0.38 0.02 240)' : 'oklch(0.62 0.01 240)'}>
+              {v}
+            </text>
+          </g>
+        );
+      })}
+
+      <line x1={ml} y1={mt} x2={ml} y2={mt+ph} stroke={cG} strokeWidth="1"/>
+      <text transform={`translate(13,${mt+ph/2}) rotate(-90)`} textAnchor="middle"
+            fontSize="11" fontFamily="IBM Plex Sans,sans-serif" fill="oklch(0.55 0.01 240)">
+        Enthalpy (kJ/mol)
+      </text>
+
+      {renderSpecies(rSpec, rx1, rx2, RPAL)}
+      {renderSpecies(pSpec, px1, px2, PPAL)}
+
+      {/* Combined Σ level lines */}
+      <line x1={rx1} y1={yR} x2={rx2} y2={yR}
+            stroke={cR} strokeWidth="2" strokeDasharray="5,3" strokeLinecap="round" opacity="0.75"/>
+      <line x1={mx1} y1={yM} x2={mx2} y2={yM}
+            stroke={cM} strokeWidth="3" strokeLinecap="round"/>
+      <line x1={px1} y1={yP} x2={px2} y2={yP}
+            stroke={cP} strokeWidth="2" strokeDasharray="5,3" strokeLinecap="round" opacity="0.75"/>
+
+      <text x={rx1-5} y={clampY(yR+4)} textAnchor="end" fontSize="9.5"
+            fontFamily="IBM Plex Mono,monospace" fill={cR} opacity="0.85">
+        Σ {fmt(d.rL)}
+      </text>
+      <text x={px2+5} y={clampY(yP+4)} textAnchor="start" fontSize="9.5"
+            fontFamily="IBM Plex Mono,monospace" fill={cP} opacity="0.85">
+        Σ {fmt(d.pL)}
+      </text>
+
+      <text x={(mx1+mx2)/2} y={clampY(yM-9)} textAnchor="middle" fontSize="10"
+            fontFamily="IBM Plex Sans,sans-serif" fill={cM}>{mLbl}</text>
+      <text x={(mx1+mx2)/2} y={clampY(yM+16,0)} textAnchor="middle" fontSize="10"
+            fontFamily="IBM Plex Mono,monospace" fill="oklch(0.55 0.01 240)">0 kJ/mol</text>
+
+      {showSteps && <>
+        <line x1={ax1} y1={ay1} x2={ax2} y2={ay2}
+              stroke={cR} strokeWidth="1.8" markerEnd="url(#mR)" opacity=".9"/>
+        <text x={s1pos.x} y={s1pos.y} textAnchor="middle" fontSize="11"
+              fontFamily="IBM Plex Mono,monospace" fill={cR} fontWeight="500">{s1Lbl}</text>
+        <line x1={bx1} y1={by1} x2={bx2} y2={by2}
+              stroke={cP} strokeWidth="1.8" markerEnd="url(#mP)" opacity=".9"/>
+        <text x={s2pos.x} y={s2pos.y} textAnchor="middle" fontSize="11"
+              fontFamily="IBM Plex Mono,monospace" fill={cP} fontWeight="500">{s2Lbl}</text>
+      </>}
+
+      {showBracket && <g>
+        <line x1={px2+2} y1={yR} x2={brkX+brkCap} y2={yR} stroke={cD} strokeWidth="1.3"/>
+        <line x1={brkX+brkCap} y1={yR+(yR<yP?4:-4)}
+              x2={brkX+brkCap}  y2={yP+(yR<yP?-4:4)}
+              stroke={cD} strokeWidth="1.3"
+              markerEnd="url(#mD)" markerStart="url(#mDu)"/>
+        <line x1={px2+2} y1={yP} x2={brkX+brkCap} y2={yP} stroke={cD} strokeWidth="1.3"/>
+        <text x={brkX+brkCap+7} y={(yR+yP)/2-5}  fontSize="10"
+              fontFamily="IBM Plex Sans,sans-serif" fill={cD}>ΔH</text>
+        <text x={brkX+brkCap+7} y={(yR+yP)/2+8}  fontSize="11"
+              fontFamily="IBM Plex Mono,monospace" fill={cD} fontWeight="500">
+          {fmtInt(d.dH)}
+        </text>
+        <text x={brkX+brkCap+7} y={(yR+yP)/2+20} fontSize="10"
+              fontFamily="IBM Plex Sans,sans-serif" fill={cD}>kJ/mol</text>
+      </g>}
+
+      {tab === 2 && (
+        <text x={W/2} y={mt-12} textAnchor="middle" fontSize="11"
+              fontFamily="IBM Plex Sans,sans-serif" fill="oklch(0.55 0.01 240)">
+          T = {T} K
+        </text>
+      )}
+    </svg>
+  );
+}
+
+// ─── CALC PANELS ─────────────────────────────────────────────────────────────
+
+function FormCalcPanel({ rx }) {
+  const d = formData(rx);
+  return (
+    <div className="calc-panel">
+      <div className="cs">
+        <div className="cs-title">① Reactants → Elements  (reverse formation)</div>
+        {rx.r.map(r => (
+          <div className="cr" key={r.id}>
+            <span className="cr-lbl">−{r.n>1?r.n:''}·ΔHf°({CMP[r.id].lbl})</span>
+            <span className="cr-val">{fmt(-r.n*CMP[r.id].hf)} kJ/mol</span>
+          </div>
+        ))}
+        <div className="cr cr-total">
+          <span>Subtotal</span><span className="cr-val">{fmt(-d.rL)} kJ/mol</span>
+        </div>
+      </div>
+      <div className="cs">
+        <div className="cs-title">② Elements → Products  (formation)</div>
+        {rx.p.map(p => (
+          <div className="cr" key={p.id}>
+            <span className="cr-lbl">+{p.n>1?p.n:''}·ΔHf°({CMP[p.id].lbl})</span>
+            <span className="cr-val">{fmt(p.n*CMP[p.id].hf)} kJ/mol</span>
+          </div>
+        ))}
+        <div className="cr cr-total">
+          <span>Subtotal</span><span className="cr-val">{fmt(d.pL)} kJ/mol</span>
+        </div>
+      </div>
+      <div className="result-box">
+        <div className="cs-title">Result</div>
+        <div className="result-eq">ΔH°rxn = ΣΔHf°(P) − ΣΔHf°(R)</div>
+        <div className={`result-val ${d.dH < 0 ? 'neg' : 'pos'}`}>{fmt(d.dH)} kJ/mol</div>
+        <div className="result-kind">{d.dH < 0 ? '▾ exothermic' : '▴ endothermic'}</div>
+      </div>
+    </div>
+  );
+}
+
+function BondCalcPanel({ rx }) {
+  const d = bondData(rx);
+  return (
+    <div className="calc-panel">
+      <div className="cs">
+        <div className="cs-title">① Break bonds in reactants  (+energy)</div>
+        {rx.r.flatMap(r =>
+          CMP[r.id].bonds.map(([b,n]) => (
+            <div className="cr" key={r.id+b}>
+              <span className="cr-lbl">{r.n*n}×{b}</span>
+              <span className="cr-val">+{Math.round(r.n*n*(BE[b]||0))} kJ/mol</span>
+            </div>
+          ))
+        )}
+        <div className="cr cr-total">
+          <span>Total broken</span><span className="cr-val">+{Math.round(d.rBE)} kJ/mol</span>
+        </div>
+      </div>
+      <div className="cs">
+        <div className="cs-title">② Form bonds in products  (−energy)</div>
+        {rx.p.flatMap(p =>
+          CMP[p.id].bonds.map(([b,n]) => (
+            <div className="cr" key={p.id+b}>
+              <span className="cr-lbl">{p.n*n}×{b}</span>
+              <span className="cr-val">−{Math.round(p.n*n*(BE[b]||0))} kJ/mol</span>
+            </div>
+          ))
+        )}
+        <div className="cr cr-total">
+          <span>Total formed</span><span className="cr-val">−{Math.round(d.pBE)} kJ/mol</span>
+        </div>
+      </div>
+      <div className="result-box">
+        <div className="cs-title">Result (approx.)</div>
+        <div className="result-eq">ΔH ≈ ΣBE(broken) − ΣBE(formed)</div>
+        <div className={`result-val ${d.dH < 0 ? 'neg' : 'pos'}`}>{fmt(d.dH)} kJ/mol</div>
+        <div className="result-kind">{d.dH < 0 ? '▾ exothermic' : '▴ endothermic'}</div>
+      </div>
+    </div>
+  );
+}
+
+function TempCalcPanel({ rx, T }) {
+  const d = tempData(rx, T);
+  return (
+    <div className="calc-panel">
+      <div className="cs">
+        <div className="cs-title">Kirchhoff's Law</div>
+        <div className="cr">
+          <span className="cr-lbl">ΔH°(298 K)</span>
+          <span className="cr-val">{fmt(d.dH298)} kJ/mol</span>
+        </div>
+        <div className="cr">
+          <span className="cr-lbl">ΔCp = CpP − CpR</span>
+          <span className="cr-val">{fmt(d.dCp)} J·mol⁻¹·K⁻¹</span>
+        </div>
+        <div className="cr">
+          <span className="cr-lbl">ΔT = T − 298</span>
+          <span className="cr-val">{fmt(T-298)} K</span>
+        </div>
+        <div className="cr">
+          <span className="cr-lbl">ΔCp · ΔT / 1000</span>
+          <span className="cr-val">{fmt(d.dCp*(T-298)/1000)} kJ/mol</span>
+        </div>
+        <div className="cr cr-total">
+          <span>ΔH({T} K)</span>
+          <span className="cr-val">{fmt(d.dH)} kJ/mol</span>
+        </div>
+      </div>
+      <div className="cs">
+        <div className="cs-title">Heat Capacities  (J·mol⁻¹·K⁻¹)</div>
+        {rx.r.map(r => (
+          <div className="cr" key={r.id}>
+            <span className="cr-lbl">{r.n>1?r.n:''}×Cp({CMP[r.id].lbl})</span>
+            <span className="cr-val">{(r.n*CMP[r.id].Cp).toFixed(1)}</span>
+          </div>
+        ))}
+        <div className="cr" style={{borderTop:'1px solid var(--border)',paddingTop:3,marginTop:3}}>
+          <span className="cr-lbl">CpR</span>
+          <span className="cr-val">{d.CpR.toFixed(1)}</span>
+        </div>
+        {rx.p.map(p => (
+          <div className="cr" key={p.id}>
+            <span className="cr-lbl">{p.n>1?p.n:''}×Cp({CMP[p.id].lbl})</span>
+            <span className="cr-val">{(p.n*CMP[p.id].Cp).toFixed(1)}</span>
+          </div>
+        ))}
+        <div className="cr" style={{borderTop:'1px solid var(--border)',paddingTop:3,marginTop:3}}>
+          <span className="cr-lbl">CpP</span>
+          <span className="cr-val">{d.CpP.toFixed(1)}</span>
+        </div>
+      </div>
+      <div className="result-box">
+        <div className="cs-title">At {T} K</div>
+        <div className={`result-val ${d.dH < 0 ? 'neg' : 'pos'}`}>{fmt(d.dH)} kJ/mol</div>
+        <div className="result-kind" style={{marginTop:6}}>Change from 298 K:</div>
+        <div style={{fontFamily:'IBM Plex Mono',fontSize:14,marginTop:2,
+              color: Math.abs(d.dH)>Math.abs(d.dH298)?'oklch(0.50 0.17 28)':'oklch(0.44 0.16 248)'}}>
+          {fmt(d.dH - d.dH298)} kJ/mol
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── SIDEBAR FOOTERS ─────────────────────────────────────────────────────────
+
+const FOOTERS = [
+  <><b>Hess's Law:</b> path reactants→elements→products. ΔH°rxn = ΣΔHf°(P) − ΣΔHf°(R). Each stacked layer = one molecule's contribution.</>,
+  <><b>Bond energies:</b> gaseous atoms at 0. Break reactant bonds (+), form product bonds (−). Each stacked layer = one molecule.</>,
+  <><b>Kirchhoff's Law:</b> ΔH(T) = ΔH°(298) + ΔCp·(T−298). Axis spans the full temperature range so bar motion is visible as you drag.</>,
+];
+
+// ─── APP ─────────────────────────────────────────────────────────────────────
+
+const TWEAK_DEFAULTS = { showSteps: true };
+
+function App() {
+  const [tab,       setTab]       = useState(0);
+  const [rxnIdx,    setRxnIdx]    = useState(0);
+  const [T,         setT]         = useState(600);
+  const [tweaks,    setTweaks]    = useState(TWEAK_DEFAULTS);
+  const [tweaksVis, setTweaksVis] = useState(false);
+
+  const rx = RXN[rxnIdx];
+
+  useEffect(() => {
+    const handler = e => {
+      if (e.data?.type === '__activate_edit_mode')   setTweaksVis(true);
+      if (e.data?.type === '__deactivate_edit_mode') setTweaksVis(false);
+    };
+    window.addEventListener('message', handler);
+    window.parent.postMessage({ type: '__edit_mode_available' }, '*');
+    return () => window.removeEventListener('message', handler);
+  }, []);
+
+  const setTweak = (k, v) => {
+    const next = { ...tweaks, [k]: v };
+    setTweaks(next);
+    window.parent.postMessage({ type: '__edit_mode_set_keys', edits: next }, '*');
+  };
+
+  const TABS = [
+    { num:'01', label:'Heat of Formation' },
+    { num:'02', label:'Bond Energies' },
+    { num:'03', label:'Temperature Effect' },
+  ];
+
+  return (
+    <>
+      <div className="hdr">
+        <div className="hdr-title"><span>⟨/⟩</span>Thermochemistry</div>
+        {TABS.map((t,i) => (
+          <button key={i} className={`tab-btn${tab===i?' active':''}`} onClick={() => setTab(i)}>
+            <span className="tn">{t.num}</span>{t.label}
+          </button>
+        ))}
+      </div>
+
+      <div className="main">
+        <div className="sidebar">
+          <div className="sb-head">Reactions</div>
+          <div className="rxn-list">
+            {RXN.map((r,i) => (
+              <div key={r.id} className={`rxn-item${rxnIdx===i?' sel':''}`}
+                   onClick={() => setRxnIdx(i)}>
+                <div className="rxn-name">{r.name}</div>
+                <div className="rxn-eq">{r.eq}</div>
+              </div>
+            ))}
+          </div>
+          <div className="sb-foot">{FOOTERS[tab]}</div>
+        </div>
+
+        <div className="content">
+          <div className="diagram-wrap">
+            <EnergyDiagram tab={tab} rx={rx} T={T} showSteps={tweaks.showSteps}/>
+          </div>
+
+          {tab === 2 && (
+            <div className="temp-ctrl">
+              <div className="temp-lbl">Temperature</div>
+              <input type="range" min="100" max="1500" step="5"
+                     value={T} onChange={e => setT(+e.target.value)}/>
+              <div className="temp-val">{T} K</div>
+            </div>
+          )}
+
+          {tab === 0 && <FormCalcPanel rx={rx}/>}
+          {tab === 1 && <BondCalcPanel rx={rx}/>}
+          {tab === 2 && <TempCalcPanel rx={rx} T={T}/>}
+        </div>
+      </div>
+
+      <div className={`tweaks${tweaksVis?' vis':''}`}>
+        <div className="tw-title">Tweaks</div>
+        <div className="tw-row">
+          <span>Show step arrows</span>
+          <div className={`toggle${tweaks.showSteps?' on':''}`}
+               onClick={() => setTweak('showSteps', !tweaks.showSteps)}/>
+        </div>
+      </div>
+    </>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+</script>
+</body>
+</html>
